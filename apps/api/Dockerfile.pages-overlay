@@ -1,0 +1,14 @@
+ARG PLANE_BASE_IMAGE=makeplane/plane-backend:v1.3.1
+FROM ${PLANE_BASE_IMAGE}
+
+LABEL org.opencontainers.image.title="Plane Community Pages API overlay"
+LABEL org.opencontainers.image.description="Adds project Pages endpoints to the Plane Community public API"
+
+COPY plane/api/serializers/__init__.py /code/plane/api/serializers/__init__.py
+COPY plane/api/serializers/page.py /code/plane/api/serializers/page.py
+COPY plane/api/views/__init__.py /code/plane/api/views/__init__.py
+COPY plane/api/views/page.py /code/plane/api/views/page.py
+COPY plane/api/urls/__init__.py /code/plane/api/urls/__init__.py
+COPY plane/api/urls/page.py /code/plane/api/urls/page.py
+COPY plane/settings/common.py /code/plane/settings/common.py
+COPY plane/celery.py /code/plane/celery.py
