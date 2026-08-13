@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from plane.api.serializers import PageSerializer
 from plane.app.permissions import ProjectEntityPermission
 from plane.bgtasks.page_transaction_task import page_transaction
-from plane.db.models import Page, Project, ProjectPage
+from plane.db.models import Page, Project, ProjectMember, ProjectPage, UserFavorite, UserRecentVisit
 
 from .base import BaseAPIView
 
@@ -87,12 +87,11 @@ class ProjectPageListCreateAPIEndpoint(BaseAPIView):
 
 
 class ProjectPageDetailAPIEndpoint(BaseAPIView):
-    """Retrieve a project Page through API-key authentication."""
+    """Retrieve, update, and delete a project Page through API-key authentication."""
 
     serializer_class = PageSerializer
     model = Page
     permission_classes = [ProjectEntityPermission]
-    use_read_replica = True
 
     def get_queryset(self):
         return (
@@ -117,3 +116,98 @@ class ProjectPageDetailAPIEndpoint(BaseAPIView):
             ).data,
             status=status.HTTP_200_OK,
         )
+
+    def patch(self, request, slug, project_id, page_id):
+        """Partially update a Page; changing ``name`` renames it."""
+        page = get_object_or_404(self.get_queryset(), pk=page_id)
+
+        is_unlock_request = set(request.data) == {"is_locked"} and request.data.get("is_locked") is False
+        if page.is_locked and not is_unlock_request:
+            return Response({"error": "Page is locked"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if page.access != request.data.get("access", page.access) and page.owned_by_id != request.user.id:
+            return Response(
+                {"error": "Access cannot be updated since this page is owned by someone else"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = PageSerializer(
+            page,
+            data=request.data,
+            partial=True,
+            context={"project_id": project_id},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        old_description_html = page.description_html
+        with transaction.atomic():
+            page = serializer.save(updated_by=request.user)
+
+            if "description_html" in request.data and page.description_html != old_description_html:
+                transaction.on_commit(
+                    partial(
+                        page_transaction.delay,
+                        new_description_html=page.description_html,
+                        old_description_html=old_description_html,
+                        page_id=str(page.id),
+                    ),
+                    robust=True,
+                )
+
+        return Response(
+            PageSerializer(page, context={"project_id": project_id}).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def delete(self, request, slug, project_id, page_id):
+        """Delete an archived Page owned by the caller or managed by a project admin."""
+        page = get_object_or_404(
+            Page.objects.filter(
+                workspace__slug=slug,
+                project_pages__project_id=project_id,
+                project_pages__deleted_at__isnull=True,
+            ).distinct(),
+            pk=page_id,
+        )
+
+        if page.archived_at is None:
+            return Response(
+                {"error": "The page should be archived before deleting"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_project_admin = ProjectMember.objects.filter(
+            workspace__slug=slug,
+            project_id=project_id,
+            member=request.user,
+            role=20,
+            is_active=True,
+        ).exists()
+        if page.owned_by_id != request.user.id and not is_project_admin:
+            return Response(
+                {"error": "Only admin or owner can delete the page"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        Page.objects.filter(
+            parent_id=page_id,
+            workspace__slug=slug,
+            project_pages__project_id=project_id,
+            project_pages__deleted_at__isnull=True,
+        ).update(parent=None)
+        page.delete()
+
+        UserFavorite.objects.filter(
+            project_id=project_id,
+            workspace__slug=slug,
+            entity_identifier=page_id,
+            entity_type="page",
+        ).delete()
+        UserRecentVisit.objects.filter(
+            project_id=project_id,
+            workspace__slug=slug,
+            entity_identifier=page_id,
+            entity_name="page",
+        ).delete(soft=False)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
