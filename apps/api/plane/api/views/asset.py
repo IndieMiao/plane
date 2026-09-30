@@ -17,7 +17,7 @@ from drf_spectacular.utils import OpenApiExample, OpenApiRequest
 # Module Imports
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from plane.settings.storage import S3Storage
-from plane.utils.path_validator import sanitize_filename
+from plane.utils.path_validator import normalize_attachment_mime_type, sanitize_filename
 from plane.db.models import FileAsset, User, Workspace
 from plane.api.views.base import BaseAPIView
 from plane.api.serializers import (
@@ -501,6 +501,7 @@ class GenericAssetEndpoint(BaseAPIView):
         """
         name = sanitize_filename(request.data.get("name"))
         type = request.data.get("type")
+        type = normalize_attachment_mime_type(type)
         size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
         project_id = request.data.get("project_id")
         external_id = request.data.get("external_id")

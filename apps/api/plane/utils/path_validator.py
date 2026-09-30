@@ -7,8 +7,26 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.conf import settings
 
 # Python imports
+import logging
 import os
 from urllib.parse import urlparse
+
+logger = logging.getLogger("plane.api")
+
+
+def normalize_attachment_mime_type(mime_type):
+    """
+    Map a client-reported attachment MIME type onto the allowlist.
+
+    Browsers report an empty type for formats they cannot sniff (e.g. .fbx),
+    and Windows may report vendor types from the registry. Store anything
+    outside ATTACHMENT_MIME_TYPES as generic binary instead of rejecting it;
+    octet-stream is served as a download, so it cannot be rendered inline.
+    """
+    if mime_type in settings.ATTACHMENT_MIME_TYPES:
+        return mime_type
+    logger.info("Attachment type %r stored as application/octet-stream", mime_type)
+    return "application/octet-stream"
 
 
 def sanitize_filename(filename):
