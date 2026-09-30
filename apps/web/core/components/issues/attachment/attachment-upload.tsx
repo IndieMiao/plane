@@ -29,11 +29,12 @@ export const IssueAttachmentUpload = observer(function IssueAttachmentUpload(pro
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
-      const currentFile: File = acceptedFiles[0];
-      if (!currentFile || !workspaceSlug) return;
+      if (acceptedFiles.length === 0 || !workspaceSlug) return;
 
       setIsLoading(true);
-      attachmentOperations.create(currentFile).finally(() => setIsLoading(false));
+      Promise.allSettled(acceptedFiles.map((file) => attachmentOperations.create(file))).finally(() =>
+        setIsLoading(false)
+      );
     },
     [attachmentOperations, workspaceSlug]
   );
@@ -41,7 +42,7 @@ export const IssueAttachmentUpload = observer(function IssueAttachmentUpload(pro
   const { getRootProps, getInputProps, isDragActive, isDragReject, fileRejections } = useDropzone({
     onDrop,
     maxSize: maxFileSize,
-    multiple: false,
+    multiple: true,
     disabled: isLoading || disabled,
   });
 
@@ -64,7 +65,7 @@ export const IssueAttachmentUpload = observer(function IssueAttachmentUpload(pro
         ) : isLoading ? (
           <p className="text-center">Uploading...</p>
         ) : (
-          <p className="text-center">Click or drag a file here</p>
+          <p className="text-center">Click or drag files here</p>
         )}
       </span>
     </div>

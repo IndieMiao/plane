@@ -49,40 +49,29 @@ export const IssueAttachmentActionButton = observer(function IssueAttachmentActi
   }, [fetchActivities, workspaceSlug, projectId, issueId]);
 
   const onDrop = useCallback(
-    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
-      const totalAttachedFiles = acceptedFiles.length + rejectedFiles.length;
-
-      if (rejectedFiles.length === 0) {
-        const currentFile: File = acceptedFiles[0];
-        if (!currentFile || !workspaceSlug) return;
-
-        setIsLoading(true);
-        attachmentOperations
-          .create(currentFile)
-          .catch(() => {
-            setToast({
-              type: TOAST_TYPE.ERROR,
-              title: "Error!",
-              message: "File could not be attached. Try uploading again.",
-            });
-          })
-          .finally(() => {
-            handleFetchPropertyActivities();
-            setLastWidgetAction("attachments");
-            setIsLoading(false);
-          });
-        return;
+    async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+      if (rejectedFiles.length > 0) {
+        setToast({
+          type: TOAST_TYPE.ERROR,
+          title: "Error!",
+          message: `${rejectedFiles.map(({ file }) => file.name).join(", ")}: file must be of ${maxFileSize / 1024 / 1024}MB or less in size.`,
+        });
       }
 
-      setToast({
-        type: TOAST_TYPE.ERROR,
-        title: "Error!",
-        message:
-          totalAttachedFiles > 1
-            ? "Only one file can be uploaded at a time."
-            : `File must be of ${maxFileSize / 1024 / 1024}MB or less in size.`,
-      });
-      return;
+      if (acceptedFiles.length === 0 || !workspaceSlug) return;
+
+      setIsLoading(true);
+      const results = await Promise.allSettled(acceptedFiles.map((file) => attachmentOperations.create(file)));
+      if (results.some((result) => result.status === "rejected")) {
+        setToast({
+          type: TOAST_TYPE.ERROR,
+          title: "Error!",
+          message: "Some files could not be attached. Try uploading them again.",
+        });
+      }
+      handleFetchPropertyActivities();
+      setLastWidgetAction("attachments");
+      setIsLoading(false);
     },
     [attachmentOperations, maxFileSize, workspaceSlug, handleFetchPropertyActivities, setLastWidgetAction]
   );
@@ -90,12 +79,13 @@ export const IssueAttachmentActionButton = observer(function IssueAttachmentActi
   const { getRootProps, getInputProps } = useDropzone({
     onDrop,
     maxSize: maxFileSize,
-    multiple: false,
+    multiple: true,
     disabled: isLoading || disabled,
   });
 
   return (
     <div
+      role="presentation"
       onClick={(e) => {
         // TODO: Remove extra div and move event propagation to button
         e.stopPropagation();

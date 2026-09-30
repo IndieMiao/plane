@@ -67,53 +67,43 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
   }, [fetchActivities, workspaceSlug, projectId, issueId]);
 
   const onDrop = useCallback(
-    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
-      const totalAttachedFiles = acceptedFiles.length + rejectedFiles.length;
-
-      if (rejectedFiles.length === 0) {
-        const currentFile: File = acceptedFiles[0];
-        if (!currentFile || !workspaceSlug) return;
-
-        setIsUploading(true);
-        createAttachment(currentFile)
-          .catch(() => {
-            setToast({
-              type: TOAST_TYPE.ERROR,
-              title: t("toast.error"),
-              message: t("attachment.error"),
-            });
-          })
-          .finally(() => {
-            handleFetchPropertyActivities();
-            setIsUploading(false);
-          });
-        return;
+    async (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+      if (rejectedFiles.length > 0) {
+        setToast({
+          type: TOAST_TYPE.ERROR,
+          title: t("toast.error"),
+          message: `${rejectedFiles.map(({ file }) => file.name).join(", ")}: ${t("attachment.file_size_limit", { size: maxFileSize / 1024 / 1024 })}`,
+        });
       }
 
-      setToast({
-        type: TOAST_TYPE.ERROR,
-        title: t("toast.error"),
-        message:
-          totalAttachedFiles > 1
-            ? t("attachment.only_one_file_allowed")
-            : t("attachment.file_size_limit", { size: maxFileSize / 1024 / 1024 }),
-      });
-      return;
+      if (acceptedFiles.length === 0 || !workspaceSlug) return;
+
+      setIsUploading(true);
+      const results = await Promise.allSettled(acceptedFiles.map((file) => createAttachment(file)));
+      if (results.some((result) => result.status === "rejected")) {
+        setToast({
+          type: TOAST_TYPE.ERROR,
+          title: t("toast.error"),
+          message: t("attachment.error"),
+        });
+      }
+      handleFetchPropertyActivities();
+      setIsUploading(false);
     },
-    [createAttachment, maxFileSize, workspaceSlug, handleFetchPropertyActivities]
+    [createAttachment, maxFileSize, workspaceSlug, handleFetchPropertyActivities, t]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     maxSize: maxFileSize,
-    multiple: false,
+    multiple: true,
     disabled: isUploading || disabled,
   });
 
   return (
     <>
-      {uploadStatus?.map((uploadStatus) => (
-        <IssueAttachmentsUploadItem key={uploadStatus.id} uploadStatus={uploadStatus} />
+      {uploadStatus?.map((status) => (
+        <IssueAttachmentsUploadItem key={status.id} uploadStatus={status} />
       ))}
       {issueAttachments && (
         <>
