@@ -180,6 +180,7 @@ class IssueListEndpoint(BaseAPIView):
                 "created_at",
                 "updated_at",
                 "created_by",
+                "created_by_actor",
                 "updated_by",
                 "attachment_count",
                 "link_count",
@@ -304,8 +305,10 @@ class IssueViewSet(BaseViewSet):
             ).exists()
             and not project.guest_view_all_features
         ):
-            issue_queryset = issue_queryset.filter(created_by=request.user)
-            filtered_issue_queryset = filtered_issue_queryset.filter(created_by=request.user)
+            issue_queryset = issue_queryset.filter(Q(created_by=request.user) | Q(created_by_actor=request.user))
+            filtered_issue_queryset = filtered_issue_queryset.filter(
+                Q(created_by=request.user) | Q(created_by_actor=request.user)
+            )
 
         if group_by:
             if sub_group_by:
@@ -445,6 +448,7 @@ class IssueViewSet(BaseViewSet):
                     "created_at",
                     "updated_at",
                     "created_by",
+                    "created_by_actor",
                     "updated_by",
                     "attachment_count",
                     "link_count",
@@ -593,7 +597,7 @@ class IssueViewSet(BaseViewSet):
                 is_active=True,
             ).exists()
             and not project.guest_view_all_features
-            and not issue.created_by == request.user
+            and (issue.created_by_actor_id or issue.created_by_id) != request.user.id
         ):
             return Response(
                 {"error": "You are not allowed to view this issue"},
@@ -731,21 +735,11 @@ class ProjectUserDisplayPropertyEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def patch(self, request, slug, project_id):
         try:
-            issue_property = ProjectUserProperty.objects.get(
-                user=request.user, 
-                project_id=project_id
-            )
+            issue_property = ProjectUserProperty.objects.get(user=request.user, project_id=project_id)
         except ProjectUserProperty.DoesNotExist:
-            issue_property = ProjectUserProperty.objects.create(
-                user=request.user, 
-                project_id=project_id
-            )
+            issue_property = ProjectUserProperty.objects.create(user=request.user, project_id=project_id)
 
-        serializer = ProjectUserPropertySerializer(
-            issue_property, 
-            data=request.data,
-            partial=True
-        )
+        serializer = ProjectUserPropertySerializer(issue_property, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -873,6 +867,7 @@ class IssuePaginatedViewSet(BaseViewSet):
             "created_at",
             "updated_at",
             "created_by",
+            "created_by_actor",
             "updated_by",
             "is_draft",
             "archived_at",
@@ -903,8 +898,8 @@ class IssuePaginatedViewSet(BaseViewSet):
             is_active=True,
         )
         if project_member.exists() and not project.guest_view_all_features:
-            base_queryset = base_queryset.filter(created_by=request.user)
-            queryset = queryset.filter(created_by=request.user)
+            base_queryset = base_queryset.filter(Q(created_by=request.user) | Q(created_by_actor=request.user))
+            queryset = queryset.filter(Q(created_by=request.user) | Q(created_by_actor=request.user))
 
         # filtering issues by greater then updated_at given by the user
         if updated_at:
@@ -1084,9 +1079,9 @@ class IssueDetailEndpoint(BaseAPIView):
             order_by=order_by_param,
             queryset=issue,
             total_count_queryset=total_issue_queryset,
-            on_results=lambda issue: IssueListDetailSerializer(
-                issue, many=True, fields=self.fields, expand=self.expand
-            ).data,
+            on_results=lambda issue: (
+                IssueListDetailSerializer(issue, many=True, fields=self.fields, expand=self.expand).data
+            ),
         )
 
 
@@ -1334,7 +1329,7 @@ class IssueDetailIdentifierEndpoint(BaseAPIView):
                 is_active=True,
             ).exists()
             and not project.guest_view_all_features
-            and not issue.created_by == request.user
+            and (issue.created_by_actor_id or issue.created_by_id) != request.user.id
         ):
             return Response(
                 {"error": "You are not allowed to view this issue"},

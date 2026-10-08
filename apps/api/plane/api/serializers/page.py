@@ -6,11 +6,12 @@ from rest_framework import serializers
 
 from plane.db.models import Page
 from plane.utils.content_validator import validate_html_content
+from plane.utils.virtual_user_attribution import VirtualUserInputMixin
 
 from .base import BaseSerializer
 
 
-class PageSerializer(BaseSerializer):
+class PageSerializer(VirtualUserInputMixin, BaseSerializer):
     """External API representation used by the Plane Pages SDK resource."""
 
     name = serializers.CharField(required=True, allow_blank=False, trim_whitespace=True)
@@ -20,6 +21,9 @@ class PageSerializer(BaseSerializer):
     class Meta:
         model = Page
         fields = [
+            "virtual_user_id",
+            "created_by_actor",
+            "updated_by_actor",
             "id",
             "created_at",
             "updated_at",

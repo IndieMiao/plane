@@ -84,11 +84,13 @@ def track_description(
     actor_id,
     issue_activities,
     epoch,
+    actor_principal_id=None,
 ):
     if current_instance.get("description_html") != requested_data.get("description_html"):
         last_activity = IssueActivity.objects.filter(issue_id=issue_id).order_by("-created_at").first()
         if (
-            last_activity is not None
+            actor_principal_id is None
+            and last_activity is not None
             and last_activity.field == "description"
             and actor_id == str(last_activity.actor_id)
         ):
@@ -466,7 +468,7 @@ def track_estimate_points(
                 ),
                 old_value=old_estimate.value if old_estimate else None,
                 new_value=new_estimate.value if new_estimate else None,
-                field="estimate_" + new_estimate.estimate.type,
+                field="estimate_" + (new_estimate or old_estimate).estimate.type,
                 project_id=project_id,
                 workspace_id=workspace_id,
                 comment="updated the estimate point to ",
@@ -563,6 +565,7 @@ def create_issue_activity(
     actor_id,
     issue_activities,
     epoch,
+    actor_principal_id=None,
 ):
     issue = Issue.objects.get(pk=issue_id)
     issue_activity = IssueActivity.objects.create(
@@ -576,7 +579,11 @@ def create_issue_activity(
     )
     issue_activity.created_at = issue.created_at
     issue_activity.actor_id = issue.created_by_id
-    issue_activity.save(update_fields=["created_at", "actor_id"])
+    update_fields = ["created_at", "actor_id"]
+    if actor_principal_id is not None:
+        issue_activity.created_by_id = actor_principal_id
+        update_fields.append("created_by")
+    issue_activity.save(update_fields=update_fields, disable_auto_set_user=True)
     requested_data = json.loads(requested_data) if requested_data is not None else None
     if requested_data.get("assignee_ids") is not None:
         track_assignees(
@@ -600,6 +607,7 @@ def update_issue_activity(
     actor_id,
     issue_activities,
     epoch,
+    actor_principal_id=None,
 ):
     ISSUE_ACTIVITY_MAPPER = {
         "name": track_name,
@@ -636,6 +644,7 @@ def update_issue_activity(
                 actor_id=actor_id,
                 issue_activities=issue_activities,
                 epoch=epoch,
+                **({"actor_principal_id": actor_principal_id} if func is track_description else {}),
             )
 
 
@@ -1513,6 +1522,7 @@ def issue_activity(
     notification=False,
     origin=None,
     intake=None,
+    actor_principal_id=None,
 ):
     try:
         issue_activities = []
@@ -1578,7 +1588,16 @@ def issue_activity(
                 actor_id=actor_id,
                 issue_activities=issue_activities,
                 epoch=epoch,
+                **(
+                    {"actor_principal_id": actor_principal_id}
+                    if func in (create_issue_activity, update_issue_activity)
+                    else {}
+                ),
             )
+
+        if actor_principal_id is not None:
+            for activity in issue_activities:
+                activity.created_by_id = actor_principal_id
 
         # Save all the values to database
         issue_activities_created = IssueActivity.objects.bulk_create(issue_activities)

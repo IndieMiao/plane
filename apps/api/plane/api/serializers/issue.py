@@ -9,7 +9,6 @@ from django.db import IntegrityError
 
 #  Third party imports
 from rest_framework import serializers
-from rest_framework.exceptions import PermissionDenied
 
 # Module imports
 from plane.db.models import (
@@ -27,13 +26,13 @@ from plane.db.models import (
     State,
     User,
     EstimatePoint,
-    WorkspaceMember,
 )
 from plane.utils.content_validator import (
     validate_html_content,
     validate_binary_data,
 )
 from plane.utils.virtual_user_job_titles import with_workspace_job_titles
+from plane.utils.virtual_user_attribution import VirtualUserInputMixin, validate_virtual_user
 
 from .base import BaseSerializer
 from .cycle import CycleLiteSerializer, CycleSerializer
@@ -46,7 +45,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 
 
-class IssueSerializer(BaseSerializer):
+class IssueSerializer(VirtualUserInputMixin, BaseSerializer):
     """
     Comprehensive work item serializer with full relationship management.
 
@@ -72,7 +71,7 @@ class IssueSerializer(BaseSerializer):
 
     class Meta:
         model = Issue
-        read_only_fields = ["id", "workspace", "project", "updated_by", "updated_at"]
+        read_only_fields = ["id", "workspace", "project", "created_by", "updated_by", "updated_at"]
         exclude = ["description_json", "description_stripped"]
 
     def validate(self, data):
@@ -394,7 +393,7 @@ class LabelSerializer(BaseSerializer):
         ]
 
 
-class IssueLinkCreateSerializer(BaseSerializer):
+class IssueLinkCreateSerializer(VirtualUserInputMixin, BaseSerializer):
     """
     Serializer for creating work item external links with validation.
 
@@ -404,7 +403,7 @@ class IssueLinkCreateSerializer(BaseSerializer):
 
     class Meta:
         model = IssueLink
-        fields = ["title", "url", "issue_id"]
+        fields = ["title", "url", "issue_id", "virtual_user_id"]
         read_only_fields = [
             "id",
             "workspace",
@@ -463,7 +462,7 @@ class IssueLinkUpdateSerializer(IssueLinkCreateSerializer):
         return super().update(instance, validated_data)
 
 
-class IssueLinkSerializer(BaseSerializer):
+class IssueLinkSerializer(VirtualUserInputMixin, BaseSerializer):
     """
     Full serializer for work item external links.
 
@@ -712,42 +711,9 @@ class IssueCommentCreateSerializer(BaseSerializer):
         if self.instance is not None:
             raise serializers.ValidationError("The comment author cannot be changed.")
 
-        request = self.context["request"]
-        slug = self.context["view"].workspace_slug
-        project_id = self.context["view"].project_id
-        if (
-            not request.user.is_active
-            or request.user.is_virtual
-            or not WorkspaceMember.objects.filter(
-                workspace__slug=slug, member=request.user, is_active=True, role__in=[15, 20]
-            ).exists()
-            or not ProjectMember.objects.filter(
-                workspace__slug=slug, project_id=project_id, member=request.user, is_active=True, role__in=[15, 20]
-            ).exists()
-        ):
-            raise PermissionDenied("Only active workspace and project members can comment as a virtual user.")
-
-        membership = (
-            ProjectMember.objects.filter(
-                workspace__slug=slug,
-                project_id=project_id,
-                member_id=value,
-                member__is_virtual=True,
-                is_active=True,
-                role__in=[15, 20],
-            )
-            .select_related("member")
-            .first()
+        return validate_virtual_user(
+            value, self.context["request"], self.context["view"].workspace_slug, self.context["view"].project_id
         )
-        if (
-            membership is None
-            or not WorkspaceMember.objects.filter(
-                workspace__slug=slug, member_id=value, is_active=True, role__in=[15, 20]
-            ).exists()
-        ):
-            raise serializers.ValidationError("Choose a virtual user who is an active member of this project.")
-
-        return membership.member
 
     class Meta:
         model = IssueComment
@@ -818,6 +784,11 @@ class IssueActivitySerializer(BaseSerializer):
     Tracks and represents work item modifications, state changes,
     and user interactions for audit trails and activity feeds.
     """
+
+    actor_principal = serializers.SerializerMethodField()
+
+    def get_actor_principal(self, instance):
+        return str(instance.created_by_id or instance.actor_id) if instance.created_by_id or instance.actor_id else None
 
     class Meta:
         model = IssueActivity
@@ -912,7 +883,7 @@ class IssueExpandSerializer(BaseSerializer):
         ]
 
 
-class IssueAttachmentUploadSerializer(serializers.Serializer):
+class IssueAttachmentUploadSerializer(VirtualUserInputMixin, serializers.Serializer):
     """
     Serializer for work item attachment upload request validation.
 

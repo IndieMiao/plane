@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 from plane.db.models import WorkspaceMember, ProjectMember
+from django.db.models import Q
 from functools import wraps
 from rest_framework.response import Response
 from rest_framework import status
@@ -33,7 +34,10 @@ def allow_permission(allowed_roles, level="PROJECT", creator=False, model=None):
                         status=status.HTTP_403_FORBIDDEN,
                     )
 
-                obj = model.objects.filter(id=kwargs["pk"], created_by=request.user).exists()
+                creator_filter = Q(created_by=request.user)
+                if hasattr(model, "created_by_actor"):
+                    creator_filter |= Q(created_by_actor=request.user)
+                obj = model.objects.filter(creator_filter, id=kwargs["pk"]).exists()
                 if obj:
                     return view_func(instance, request, *args, **kwargs)
 

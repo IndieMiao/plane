@@ -267,4 +267,4 @@ def crawl_work_item_link_title(id: str, url: str) -> None:
         return
 
     issue_link.metadata = meta_data
-    issue_link.save()
+    issue_link.save(update_fields=["metadata"])
