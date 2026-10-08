@@ -4,18 +4,22 @@
  * See the LICENSE file for details.
  */
 
+import { useState } from "react";
+import { useTranslation } from "@plane/i18n";
+import { EditIcon } from "@plane/propel/icons";
 import { observer } from "mobx-react";
 import Link from "next/link";
 import { Controller, useForm } from "react-hook-form";
 import { CircleMinus } from "lucide-react";
 import { Disclosure } from "@headlessui/react";
 // plane imports
-import { ROLE, EUserPermissions, MEMBER_TRACKER_ELEMENTS } from "@plane/constants";
+import { ROLE, EUserPermissions, EUserPermissionsLevel, MEMBER_TRACKER_ELEMENTS } from "@plane/constants";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { EUserProjectRoles, IUser, IWorkspaceMember, TProjectMembership } from "@plane/types";
 import { CustomMenu, CustomSelect } from "@plane/ui";
 import { getFileURL } from "@plane/utils";
 // hooks
+import { VirtualUserModal } from "@/components/workspace/settings/create-virtual-user-modal";
 import { useMember } from "@/hooks/store/use-member";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
 
@@ -40,57 +44,77 @@ type AccountTypeProps = {
 
 export function NameColumn(props: NameProps) {
   const { rowData, workspaceSlug, isAdmin, currentUser, setRemoveMemberModal } = props;
+  const [isEditing, setIsEditing] = useState(false);
+  const { t } = useTranslation();
+  const { allowPermissions } = useUserPermissions();
+  const canEditVirtualUser =
+    !!rowData.member.is_virtual &&
+    allowPermissions([EUserPermissions.ADMIN], EUserPermissionsLevel.WORKSPACE, workspaceSlug);
   // derived values
   const { avatar_url, display_name, email, first_name, id, last_name } = rowData.member;
 
   return (
-    <Disclosure>
-      {({}) => (
-        <div className="group relative">
-          <div className="flex w-72 items-center gap-2">
-            <div className="flex flex-1 items-center gap-x-2 gap-y-2">
-              {avatar_url && avatar_url.trim() !== "" ? (
-                <Link href={`/${workspaceSlug}/profile/${id}`}>
-                  <span className="relative flex size-6 items-center justify-center rounded-full text-on-color capitalize">
-                    <img
-                      src={getFileURL(avatar_url)}
-                      className="absolute top-0 left-0 h-full w-full rounded-full object-cover"
-                      alt={display_name || email}
-                    />
-                  </span>
-                </Link>
-              ) : (
-                <Link href={`/${workspaceSlug}/profile/${id}`}>
-                  <span className="relative flex size-6 items-center justify-center rounded-full bg-layer-3 text-11 text-on-color capitalize">
-                    {(email ?? display_name ?? "?")[0]}
-                  </span>
-                </Link>
+    <>
+      <Disclosure>
+        {() => (
+          <div className="group relative">
+            <div className="flex w-72 items-center gap-2">
+              <div className="flex flex-1 items-center gap-x-2 gap-y-2">
+                {avatar_url && avatar_url.trim() !== "" ? (
+                  <Link href={`/${workspaceSlug}/profile/${id}`}>
+                    <span className="relative flex size-6 items-center justify-center rounded-full text-on-color capitalize">
+                      <img
+                        src={getFileURL(avatar_url)}
+                        className="absolute top-0 left-0 h-full w-full rounded-full object-cover"
+                        alt={display_name || email}
+                      />
+                    </span>
+                  </Link>
+                ) : (
+                  <Link href={`/${workspaceSlug}/profile/${id}`}>
+                    <span className="relative flex size-6 items-center justify-center rounded-full bg-layer-3 text-11 text-on-color capitalize">
+                      {(email ?? display_name ?? "?")[0]}
+                    </span>
+                  </Link>
+                )}
+                {first_name} {last_name}
+              </div>
+              {(isAdmin || canEditVirtualUser || id === currentUser?.id) && (
+                <CustomMenu
+                  ellipsis
+                  buttonClassName="p-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  optionsClassName="p-1.5"
+                  placement="bottom-end"
+                >
+                  {canEditVirtualUser && (
+                    <CustomMenu.MenuItem onClick={() => setIsEditing(true)}>
+                      <div className="flex items-center gap-x-2">
+                        <EditIcon className="size-3.5" />
+                        {t("workspace_settings.settings.members.virtual_user.edit_profile")}
+                      </div>
+                    </CustomMenu.MenuItem>
+                  )}
+                  {(isAdmin || id === currentUser?.id) && (
+                    <CustomMenu.MenuItem onClick={() => setRemoveMemberModal(rowData)}>
+                      <div
+                        className="flex cursor-pointer items-center gap-x-1 font-medium text-danger-primary"
+                        data-ph-element={MEMBER_TRACKER_ELEMENTS.PROJECT_MEMBER_TABLE_CONTEXT_MENU}
+                      >
+                        <CircleMinus className="size-3.5 flex-shrink-0" />
+                        {rowData.member?.id === currentUser?.id ? "Leave " : "Remove "}
+                      </div>
+                    </CustomMenu.MenuItem>
+                  )}
+                </CustomMenu>
               )}
-              {first_name} {last_name}
             </div>
-            {(isAdmin || id === currentUser?.id) && (
-              <CustomMenu
-                ellipsis
-                buttonClassName="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                optionsClassName="p-1.5"
-                placement="bottom-end"
-              >
-                <CustomMenu.MenuItem>
-                  <div
-                    className="flex cursor-pointer items-center gap-x-1 font-medium text-danger-primary"
-                    data-ph-element={MEMBER_TRACKER_ELEMENTS.PROJECT_MEMBER_TABLE_CONTEXT_MENU}
-                    onClick={() => setRemoveMemberModal(rowData)}
-                  >
-                    <CircleMinus className="size-3.5 flex-shrink-0" />
-                    {rowData.member?.id === currentUser?.id ? "Leave " : "Remove "}
-                  </div>
-                </CustomMenu.MenuItem>
-              </CustomMenu>
-            )}
           </div>
-        </div>
+        )}
+      </Disclosure>
+      {isEditing && canEditVirtualUser && (
+        <VirtualUserModal workspaceSlug={workspaceSlug} member={rowData.member} onClose={() => setIsEditing(false)} />
       )}
-    </Disclosure>
+    </>
   );
 }
 

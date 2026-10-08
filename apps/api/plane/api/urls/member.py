@@ -7,6 +7,7 @@ from plane.api.views.virtual_user import (
     WorkspaceVirtualUserAPIEndpoint,
     WorkspaceVirtualUserJobTitleAPIEndpoint,
     WorkspaceMemberJobTitlesAPIEndpoint,
+    WorkspaceVirtualUserDetailAPIEndpoint,
 )
 
 from plane.api.views import (
@@ -16,6 +17,11 @@ from plane.api.views import (
 )
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/virtual-users/<uuid:user_id>/",
+        WorkspaceVirtualUserDetailAPIEndpoint.as_view(http_method_names=["patch", "options"]),
+        name="workspace-virtual-user-detail-api",
+    ),
     path(
         "workspaces/<str:slug>/members/<uuid:user_id>/job-titles/",
         WorkspaceMemberJobTitlesAPIEndpoint.as_view(http_method_names=["patch", "options"]),

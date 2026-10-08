@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-from rest_framework import status
+import json
+
+from rest_framework import serializers, status
 from rest_framework.response import Response
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -22,6 +24,21 @@ from plane.utils.virtual_user_job_titles import (
     get_or_create_virtual_user_job_title,
     with_workspace_job_titles,
 )
+
+
+def virtual_user_payload(request):
+    """Keep arrays and booleans intact when submitting a profile with an image."""
+    if not request.content_type.startswith("multipart/form-data"):
+        return request.data
+    try:
+        data = json.loads(request.data.get("data", "{}"))
+    except (TypeError, ValueError) as exc:
+        raise serializers.ValidationError({"data": "Provide a valid JSON object."}) from exc
+    if not isinstance(data, dict):
+        raise serializers.ValidationError({"data": "Provide a valid JSON object."})
+    if "avatar" in request.FILES:
+        data["avatar"] = request.FILES["avatar"]
+    return data
 
 
 class WorkspaceMemberJobTitlesViewMixin:
@@ -92,11 +109,41 @@ class VirtualUserViewMixin:
     @extend_schema(tags=["Members"], request=VirtualUserSerializer, responses={201: UserLiteSerializer})
     def post(self, request, slug):
         workspace = Workspace.objects.get(slug=slug)
-        serializer = VirtualUserSerializer(data=request.data, context={"workspace": workspace, "request": request})
+        serializer = VirtualUserSerializer(
+            data=virtual_user_payload(request), context={"workspace": workspace, "request": request}
+        )
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(UserLiteSerializer(user).data, status=status.HTTP_201_CREATED)
 
 
 class WorkspaceVirtualUserEndpoint(VirtualUserViewMixin, BaseAPIView):
+    pass
+
+
+class VirtualUserDetailViewMixin:
+    permission_classes = [WorkspaceVirtualUserPermission]
+    serializer_class = VirtualUserSerializer
+
+    @extend_schema(tags=["Members"], request=VirtualUserSerializer, responses={200: UserLiteSerializer})
+    def patch(self, request, slug, user_id):
+        membership = get_object_or_404(
+            WorkspaceMember.objects.select_related("workspace", "member"),
+            workspace__slug=slug,
+            member_id=user_id,
+            member__is_virtual=True,
+            is_active=True,
+        )
+        serializer = VirtualUserSerializer(
+            membership.member,
+            data=virtual_user_payload(request),
+            partial=True,
+            context={"workspace": membership.workspace, "membership": membership, "request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserLiteSerializer(user).data)
+
+
+class WorkspaceVirtualUserDetailEndpoint(VirtualUserDetailViewMixin, BaseAPIView):
     pass

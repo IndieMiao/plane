@@ -4,6 +4,8 @@ FROM ${PLANE_BASE_IMAGE}
 LABEL org.opencontainers.image.title="Plane Community Pages and virtual users overlay"
 LABEL org.opencontainers.image.description="Adds project Pages and virtual users for assignment and comments to Plane Community"
 
+RUN pip install --no-cache-dir Pillow==12.3.0
+
 COPY plane/api/serializers/__init__.py /code/plane/api/serializers/__init__.py
 COPY plane/api/serializers/page.py /code/plane/api/serializers/page.py
 COPY plane/api/views/__init__.py /code/plane/api/views/__init__.py

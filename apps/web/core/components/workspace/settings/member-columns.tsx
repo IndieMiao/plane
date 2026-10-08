@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { useState } from "react";
 import { observer } from "mobx-react";
 import { useTranslation } from "@plane/i18n";
 import Link from "next/link";
@@ -12,7 +13,7 @@ import { Controller, useForm } from "react-hook-form";
 import { Disclosure } from "@headlessui/react";
 // plane imports
 import { ROLE, EUserPermissions, EUserPermissionsLevel, MEMBER_TRACKER_ELEMENTS } from "@plane/constants";
-import { TrashIcon, SuspendedUserIcon } from "@plane/propel/icons";
+import { EditIcon, TrashIcon, SuspendedUserIcon } from "@plane/propel/icons";
 import { Pill, EPillVariant, EPillSize } from "@plane/propel/pill";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IUser, IWorkspaceMember } from "@plane/types";
@@ -21,6 +22,7 @@ import { CustomSelect, PopoverMenu } from "@plane/ui";
 // helpers
 import { getFileURL } from "@plane/utils";
 // hooks
+import { VirtualUserModal } from "./create-virtual-user-modal";
 import { useMember } from "@/hooks/store/use-member";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
 
@@ -49,73 +51,83 @@ export function NameColumn(props: NameProps) {
   // derived values
   const { avatar_url, display_name, email, first_name, id, last_name } = rowData.member;
   const isSuspended = rowData.is_active === false;
+  const [isEditing, setIsEditing] = useState(false);
 
   return (
-    <Disclosure>
-      {() => (
-        <div className="group relative">
-          <div className="flex w-72 items-center justify-between gap-x-4 gap-y-2">
-            <div className="flex flex-1 items-center gap-x-2 gap-y-2">
-              {isSuspended ? (
-                <div className="rounded-full bg-layer-1">
-                  <SuspendedUserIcon className="size-6 text-placeholder" />
-                </div>
-              ) : avatar_url && avatar_url.trim() !== "" ? (
-                <Link href={`/${workspaceSlug}/profile/${id}`}>
-                  <span className="relative flex size-6 items-center justify-center rounded-full text-on-color capitalize">
-                    <img
-                      src={getFileURL(avatar_url)}
-                      className="absolute top-0 left-0 h-full w-full rounded-full object-cover"
-                      alt={display_name || email}
-                    />
-                  </span>
-                </Link>
-              ) : (
-                <Link href={`/${workspaceSlug}/profile/${id}`}>
-                  <span className="relative flex size-6 items-center justify-center rounded-full bg-layer-3 text-11 text-tertiary capitalize">
-                    {(email ?? display_name ?? "?")[0]}
-                  </span>
-                </Link>
-              )}
-              <span className={isSuspended ? "text-placeholder" : ""}>
-                {first_name} {last_name}
-              </span>
-              {rowData.member.is_virtual && (
-                <Pill variant={EPillVariant.DEFAULT} size={EPillSize.XS}>
-                  {t("workspace_settings.settings.members.virtual_user.label")}
-                </Pill>
+    <>
+      <Disclosure>
+        {() => (
+          <div className="group relative">
+            <div className="flex w-72 items-center justify-between gap-x-4 gap-y-2">
+              <div className="flex flex-1 items-center gap-x-2 gap-y-2">
+                {isSuspended ? (
+                  <div className="rounded-full bg-layer-1">
+                    <SuspendedUserIcon className="size-6 text-placeholder" />
+                  </div>
+                ) : avatar_url && avatar_url.trim() !== "" ? (
+                  <Link href={`/${workspaceSlug}/profile/${id}`}>
+                    <span className="relative flex size-6 items-center justify-center rounded-full text-on-color capitalize">
+                      <img
+                        src={getFileURL(avatar_url)}
+                        className="absolute top-0 left-0 h-full w-full rounded-full object-cover"
+                        alt={display_name || email}
+                      />
+                    </span>
+                  </Link>
+                ) : (
+                  <Link href={`/${workspaceSlug}/profile/${id}`}>
+                    <span className="relative flex size-6 items-center justify-center rounded-full bg-layer-3 text-11 text-tertiary capitalize">
+                      {(email ?? display_name ?? "?")[0]}
+                    </span>
+                  </Link>
+                )}
+                <span className={isSuspended ? "text-placeholder" : ""}>
+                  {first_name} {last_name}
+                </span>
+                {rowData.member.is_virtual && (
+                  <Pill variant={EPillVariant.DEFAULT} size={EPillSize.XS}>
+                    {t("workspace_settings.settings.members.virtual_user.label")}
+                  </Pill>
+                )}
+              </div>
+
+              {!isSuspended && (isAdmin || id === currentUser?.id) && (
+                <PopoverMenu
+                  data={isAdmin && rowData.member.is_virtual ? ["edit", "remove"] : ["remove"]}
+                  keyExtractor={(item) => item}
+                  popoverClassName="!w-auto shrink-0 justify-end"
+                  buttonClassName="outline-none	origin-center rotate-90 size-8 aspect-square flex-shrink-0 grid place-items-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  render={(item) =>
+                    item === "edit" ? (
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-x-3 rounded px-1 py-1.5 text-left hover:bg-layer-transparent-hover"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <EditIcon className="size-3.5" />{" "}
+                        {t("workspace_settings.settings.members.virtual_user.edit_profile")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex w-full cursor-pointer items-center gap-x-3 rounded px-1 py-1.5 text-left hover:bg-layer-transparent-hover"
+                        onClick={() => setRemoveMemberModal(rowData)}
+                        data-ph-element={MEMBER_TRACKER_ELEMENTS.WORKSPACE_MEMBER_TABLE_CONTEXT_MENU}
+                      >
+                        <TrashIcon className="size-3.5 align-middle" /> {id === currentUser?.id ? "Leave " : "Remove "}
+                      </button>
+                    )
+                  }
+                />
               )}
             </div>
-
-            {!isSuspended && (isAdmin || id === currentUser?.id) && (
-              <PopoverMenu
-                data={[""]}
-                keyExtractor={(item) => item}
-                popoverClassName="justify-end"
-                buttonClassName="outline-none	origin-center rotate-90 size-8 aspect-square flex-shrink-0 grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity"
-                render={() => (
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className="flex cursor-pointer items-center gap-x-3"
-                    onClick={() => setRemoveMemberModal(rowData)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setRemoveMemberModal(rowData);
-                      }
-                    }}
-                    data-ph-element={MEMBER_TRACKER_ELEMENTS.WORKSPACE_MEMBER_TABLE_CONTEXT_MENU}
-                  >
-                    <TrashIcon className="size-3.5 align-middle" /> {id === currentUser?.id ? "Leave " : "Remove "}
-                  </div>
-                )}
-              />
-            )}
           </div>
-        </div>
+        )}
+      </Disclosure>
+      {isEditing && isAdmin && !isSuspended && rowData.member.is_virtual && (
+        <VirtualUserModal workspaceSlug={workspaceSlug} member={rowData.member} onClose={() => setIsEditing(false)} />
       )}
-    </Disclosure>
+    </>
   );
 }
 

@@ -31,6 +31,23 @@ import type {
 // services
 import { APIService } from "@/services/api.service";
 
+export type TVirtualUserProfile = {
+  display_name?: string;
+  job_titles?: string[];
+  remove_avatar?: boolean;
+};
+
+function virtualUserPayload(
+  data: TVirtualUserProfile & { project_ids?: string[]; job_title?: string },
+  avatar?: File | null
+) {
+  if (!avatar) return data;
+  const payload = new FormData();
+  payload.append("data", JSON.stringify(data));
+  payload.append("avatar", avatar);
+  return payload;
+}
+
 export class WorkspaceService extends APIService {
   constructor() {
     super(API_BASE_URL);
@@ -38,9 +55,23 @@ export class WorkspaceService extends APIService {
 
   async createVirtualUser(
     workspaceSlug: string,
-    data: { display_name: string; project_ids: string[]; job_title?: string; job_titles?: string[] }
+    data: { display_name: string; project_ids: string[]; job_title?: string; job_titles?: string[] },
+    avatar?: File | null
   ): Promise<IUserLite> {
-    return this.post(`/api/workspaces/${workspaceSlug}/virtual-users/`, data)
+    return this.post(`/api/workspaces/${workspaceSlug}/virtual-users/`, virtualUserPayload(data, avatar))
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateVirtualUser(
+    workspaceSlug: string,
+    userId: string,
+    data: TVirtualUserProfile,
+    avatar?: File | null
+  ): Promise<IUserLite> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/virtual-users/${userId}/`, virtualUserPayload(data, avatar))
       .then((response) => response.data)
       .catch((error) => {
         throw error?.response?.data;

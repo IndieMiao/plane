@@ -13,6 +13,7 @@ import type { IWorkspaceBulkInviteFormData, IWorkspaceMember, IWorkspaceMemberIn
 // plane-web constants
 // services
 import { WorkspaceService } from "@/services/workspace.service";
+import type { TVirtualUserProfile } from "@/services/workspace.service";
 // types
 import type { IRouterStore } from "@/store/router.store";
 import type { IUserStore } from "@/store/user";
@@ -52,6 +53,12 @@ export interface IWorkspaceMemberStore {
   // crud actions
   updateMember: (workspaceSlug: string, userId: string, data: { role: EUserPermissions }) => Promise<void>;
   updateMemberJobTitles: (workspaceSlug: string, userId: string, jobTitles: string[]) => Promise<void>;
+  updateVirtualUser: (
+    workspaceSlug: string,
+    userId: string,
+    data: TVirtualUserProfile,
+    avatar?: File | null
+  ) => Promise<void>;
   removeMemberFromWorkspace: (workspaceSlug: string, userId: string) => Promise<void>;
   // invite actions
   inviteMembersToWorkspace: (workspaceSlug: string, data: IWorkspaceBulkInviteFormData) => Promise<void>;
@@ -92,6 +99,7 @@ export class WorkspaceMemberStore implements IWorkspaceMemberStore {
       fetchWorkspaceMembers: action,
       updateMember: action,
       updateMemberJobTitles: action,
+      updateVirtualUser: action,
       removeMemberFromWorkspace: action,
       fetchWorkspaceMemberInvitations: action,
       updateMemberInvitation: action,
@@ -266,6 +274,14 @@ export class WorkspaceMemberStore implements IWorkspaceMemberStore {
         job_title: user.job_title,
         job_titles: user.job_titles,
       });
+    });
+  };
+
+  updateVirtualUser: IWorkspaceMemberStore["updateVirtualUser"] = async (workspaceSlug, userId, data, avatar) => {
+    const user = await this.workspaceService.updateVirtualUser(workspaceSlug, userId, data, avatar);
+    runInAction(() => {
+      if (this.routerStore.workspaceSlug !== workspaceSlug) return;
+      set(this.memberRoot.memberMap, userId, { ...this.memberRoot.memberMap[userId], ...user });
     });
   };
 

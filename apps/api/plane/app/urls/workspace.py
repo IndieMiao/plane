@@ -7,6 +7,7 @@ from plane.app.views.workspace.virtual_user import (
     WorkspaceVirtualUserEndpoint,
     WorkspaceVirtualUserJobTitleEndpoint,
     WorkspaceMemberJobTitlesEndpoint,
+    WorkspaceVirtualUserDetailEndpoint,
 )
 
 
@@ -45,6 +46,11 @@ from plane.app.views import (
 
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/virtual-users/<uuid:user_id>/",
+        WorkspaceVirtualUserDetailEndpoint.as_view(http_method_names=["patch", "options"]),
+        name="workspace-virtual-user-detail",
+    ),
     path(
         "workspaces/<str:slug>/members/<uuid:user_id>/job-titles/",
         WorkspaceMemberJobTitlesEndpoint.as_view(http_method_names=["patch", "options"]),

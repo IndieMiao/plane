@@ -6,6 +6,7 @@ from plane.app.views.workspace.virtual_user import (
     VirtualUserViewMixin,
     VirtualUserJobTitleViewMixin,
     WorkspaceMemberJobTitlesViewMixin,
+    VirtualUserDetailViewMixin,
 )
 from .base import BaseAPIView
 
@@ -20,3 +21,7 @@ class WorkspaceVirtualUserJobTitleAPIEndpoint(VirtualUserJobTitleViewMixin, Base
 
 class WorkspaceMemberJobTitlesAPIEndpoint(WorkspaceMemberJobTitlesViewMixin, BaseAPIView):
     """Allow workspace administrators to replace a member's workspace job titles."""
+
+
+class WorkspaceVirtualUserDetailAPIEndpoint(VirtualUserDetailViewMixin, BaseAPIView):
+    """Allow workspace administrators to edit a virtual user's profile."""

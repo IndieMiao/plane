@@ -30,6 +30,8 @@ django-filter==24.2
 jsonmodels==2.7.0
 # storage
 django-storages==1.14.2
+# avatar validation and resizing
+Pillow==12.3.0
 # user management
 django-crum==0.7.9
 # web server
