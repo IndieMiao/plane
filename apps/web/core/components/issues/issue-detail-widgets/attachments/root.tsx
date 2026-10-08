@@ -32,28 +32,30 @@ export const AttachmentsCollapsible = observer(function AttachmentsCollapsible(p
   const isCollapsibleOpen = openWidgets.includes("attachments");
 
   return (
-    <Collapsible
-      isOpen={isCollapsibleOpen}
-      onToggle={() => toggleOpenWidget("attachments")}
-      title={
-        <IssueAttachmentsCollapsibleTitle
-          isOpen={isCollapsibleOpen}
+    <section data-work-item-section="attachments">
+      <Collapsible
+        isOpen={isCollapsibleOpen}
+        onToggle={() => toggleOpenWidget("attachments")}
+        title={
+          <IssueAttachmentsCollapsibleTitle
+            isOpen={isCollapsibleOpen}
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueId={issueId}
+            disabled={disabled}
+            issueServiceType={issueServiceType}
+          />
+        }
+        buttonClassName="w-full"
+      >
+        <IssueAttachmentsCollapsibleContent
           workspaceSlug={workspaceSlug}
           projectId={projectId}
           issueId={issueId}
           disabled={disabled}
           issueServiceType={issueServiceType}
         />
-      }
-      buttonClassName="w-full"
-    >
-      <IssueAttachmentsCollapsibleContent
-        workspaceSlug={workspaceSlug}
-        projectId={projectId}
-        issueId={issueId}
-        disabled={disabled}
-        issueServiceType={issueServiceType}
-      />
-    </Collapsible>
+      </Collapsible>
+    </section>
   );
 });

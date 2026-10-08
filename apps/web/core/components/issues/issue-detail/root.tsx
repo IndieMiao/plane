@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
@@ -25,6 +25,8 @@ import { useAppRouter } from "@/hooks/use-app-router";
 // local components
 import { IssuePeekOverview } from "../peek-overview";
 import { IssueMainContent } from "./main-content";
+import { WorkItemImagePreviewLabels } from "../attachment/image-preview-labels";
+import { WorkItemSectionNavigation } from "./section-navigation";
 import { IssueDetailsSidebar } from "./sidebar";
 
 export type TIssueOperations = {
@@ -80,7 +82,8 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
     issues: { removeIssue: removeArchivedIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
   const { allowPermissions } = useUserPermissions();
-  const { issueDetailSidebarCollapsed } = useAppTheme();
+  const { issueDetailSidebarCollapsed, toggleIssueDetailSidebar } = useAppTheme();
+  const sectionScopeRef = useRef<HTMLDivElement>(null);
 
   const issueOperations: TIssueOperations = useMemo(
     () => ({
@@ -226,7 +229,7 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
   );
 
   return (
-    <>
+    <WorkItemImagePreviewLabels>
       {!issue ? (
         <EmptyState
           image={emptyIssue}
@@ -238,34 +241,47 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
           }}
         />
       ) : (
-        <div className="flex h-full min-h-0 w-full overflow-hidden">
-          <div className="vertical-scrollbar scrollbar-md h-full w-full min-w-0 space-y-6 px-9 py-5 [scrollbar-gutter:stable]">
-            <IssueMainContent
-              workspaceSlug={workspaceSlug}
-              projectId={projectId}
-              issueId={issueId}
-              issueOperations={issueOperations}
-              isEditable={isEditable}
-              isArchived={is_archived}
-            />
-          </div>
-          <div
-            className="fixed right-0 z-[5] h-full w-full min-w-[300px] border-l border-subtle bg-surface-1 sm:w-1/2 md:relative md:w-1/4 lg:min-w-80 xl:min-w-96"
-            style={issueDetailSidebarCollapsed ? { right: `-${window?.innerWidth || 0}px` } : {}}
-          >
-            <IssueDetailsSidebar
-              workspaceSlug={workspaceSlug}
-              projectId={projectId}
-              issueId={issueId}
-              issueOperations={issueOperations}
-              isEditable={!is_archived && isEditable}
-            />
+        <div ref={sectionScopeRef} className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+          <WorkItemSectionNavigation
+            issueId={issueId}
+            scopeRef={sectionScopeRef}
+            canComment={!is_archived}
+            onPropertiesNavigate={() => {
+              if (window.innerWidth >= 768) toggleIssueDetailSidebar(false);
+            }}
+          />
+          <div className="flex min-h-0 w-full flex-1 overflow-hidden">
+            <div
+              className="vertical-scrollbar scrollbar-md h-full w-full min-w-0 space-y-6 px-4 py-5 [scrollbar-gutter:stable] sm:px-9"
+              data-work-item-scroll
+            >
+              <IssueMainContent
+                workspaceSlug={workspaceSlug}
+                projectId={projectId}
+                issueId={issueId}
+                issueOperations={issueOperations}
+                isEditable={isEditable}
+                isArchived={is_archived}
+              />
+            </div>
+            <div
+              className="fixed right-0 z-[5] h-full w-full min-w-[300px] border-l border-subtle bg-surface-1 sm:w-1/2 md:relative md:w-1/4 lg:min-w-80 xl:min-w-96"
+              style={issueDetailSidebarCollapsed ? { right: `-${window?.innerWidth || 0}px` } : {}}
+            >
+              <IssueDetailsSidebar
+                workspaceSlug={workspaceSlug}
+                projectId={projectId}
+                issueId={issueId}
+                issueOperations={issueOperations}
+                isEditable={!is_archived && isEditable}
+              />
+            </div>
           </div>
         </div>
       )}
 
       {/* peek overview */}
       <IssuePeekOverview />
-    </>
+    </WorkItemImagePreviewLabels>
   );
 });

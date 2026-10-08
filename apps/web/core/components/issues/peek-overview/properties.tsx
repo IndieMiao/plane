@@ -79,7 +79,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
   maxDate?.setDate(maxDate.getDate());
 
   return (
-    <div>
+    <div data-work-item-section="properties">
       <h6 className="text-body-xs-medium">{t("common.properties")}</h6>
       <div className={`mt-3 w-full space-y-3 ${disabled ? "opacity-60" : ""}`}>
         <SidebarPropertyListItem icon={StatePropertyIcon} label={t("common.state")}>

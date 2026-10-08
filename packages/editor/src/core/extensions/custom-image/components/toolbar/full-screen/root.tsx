@@ -12,6 +12,7 @@ import { Tooltip } from "@plane/propel/tooltip";
 import { ImageFullScreenModal } from "./modal";
 
 type Props = {
+  onPreview?: () => void;
   image: {
     aspectRatio: number;
     downloadSrc: string;
@@ -51,7 +52,8 @@ export function ImageFullScreenActionRoot(props: Props) {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setIsFullScreenEnabled(true);
+            if (props.onPreview) props.onPreview();
+            else setIsFullScreenEnabled(true);
           }}
           className="grid h-full flex-shrink-0 place-items-center text-on-color/60 transition-colors hover:text-on-color"
           aria-label="View image in full screen"

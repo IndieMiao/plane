@@ -85,8 +85,10 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
   return (
     <>
       <div className="flex h-full w-full flex-col items-center divide-y-2 divide-subtle-1 overflow-hidden">
-        <div className="h-full w-full overflow-y-auto px-6">
-          <h5 className="mt-5 text-body-xs-medium">{t("common.properties")}</h5>
+        <div className="h-full w-full overflow-y-auto px-6" data-work-item-scroll>
+          <h5 className="mt-5 text-body-xs-medium" data-work-item-section="properties">
+            {t("common.properties")}
+          </h5>
           <div className={`mt-4 mb-2 space-y-2.5 truncate ${!isEditable ? "opacity-60" : ""}`}>
             <SidebarPropertyListItem icon={StatePropertyIcon} label={t("common.state")}>
               <StateDropdown

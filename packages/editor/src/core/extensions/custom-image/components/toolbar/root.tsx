@@ -15,6 +15,7 @@ import { ImageDownloadAction } from "./download";
 import { ImageFullScreenActionRoot } from "./full-screen";
 
 type Props = {
+  onPreview?: () => void;
   alignment: TCustomImageAlignment;
   editor: Editor;
   aspectRatio: number;
@@ -54,6 +55,7 @@ export function ImageToolbarRoot(props: Props) {
         )}
         <ImageFullScreenActionRoot
           image={props}
+          onPreview={props.onPreview}
           isTouchDevice={isTouchDevice}
           toggleToolbarViewStatus={setShouldShowToolbar}
         />

@@ -9,7 +9,7 @@ import uniq from "lodash-es/uniq";
 import { observer } from "mobx-react";
 // plane package imports
 import type { TActivityFilters } from "@plane/constants";
-import { E_SORT_ORDER, defaultActivityFilters, EUserPermissions } from "@plane/constants";
+import { E_SORT_ORDER, EActivityFilterType, defaultActivityFilters, EUserPermissions } from "@plane/constants";
 import { useLocalStorage } from "@plane/hooks";
 // i18n
 import { useTranslation } from "@plane/i18n";
@@ -105,7 +105,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   if (!project) return <></>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-work-item-section="activity">
       {/* header */}
       <div className="flex items-center justify-between">
         <div className="text-h5-medium text-primary">{t("common.activity")}</div>
@@ -128,6 +128,31 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         </div>
       </div>
 
+      <div role="group" aria-label={t("issue.detail_navigation.activity_filter")} className="flex flex-wrap gap-1">
+        {[
+          { key: "all", filters: defaultActivityFilters },
+          { key: "comments", filters: [EActivityFilterType.COMMENT] },
+          {
+            key: "changes",
+            filters: defaultActivityFilters.filter((filter) => filter !== EActivityFilterType.COMMENT),
+          },
+        ].map((option) => {
+          const selected =
+            option.filters.length === selectedFilters?.length &&
+            option.filters.every((filter) => selectedFilters?.includes(filter));
+          return (
+            <button
+              type="button"
+              key={option.key}
+              onClick={() => setFilterValue(option.filters)}
+              aria-pressed={selected}
+              className={`focus-visible:outline-accent-primary rounded-md px-3 py-1.5 text-12 focus-visible:outline-2 ${selected ? "bg-layer-2 font-medium text-primary" : "text-tertiary hover:bg-layer-1"}`}
+            >
+              {t(`issue.detail_navigation.${option.key}`)}
+            </button>
+          );
+        })}
+      </div>
       {/* rendering activity */}
       <div className="space-y-3">
         <div className="min-h-[200px]">

@@ -97,7 +97,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
       : undefined;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-work-item-section="details">
       {issue.parent_id && (
         <IssueParentDetail
           workspaceSlug={workspaceSlug}

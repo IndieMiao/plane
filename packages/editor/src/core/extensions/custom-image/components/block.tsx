@@ -5,9 +5,11 @@
  */
 
 import { NodeSelection } from "@tiptap/pm/state";
-import React, { useRef, useState, useCallback, useLayoutEffect, useEffect } from "react";
+import React, { useRef, useState, useCallback, useLayoutEffect, useEffect, useContext } from "react";
 // plane imports
 import { cn } from "@plane/utils";
+import { ImagePreview, ImagePreviewLabelsContext } from "@plane/ui";
+import type { TImagePreviewItem } from "@plane/ui";
 // local imports
 import { ECustomImageAttributeNames } from "../types";
 import type { Pixel, TCustomImageAttributes, TCustomImageSize } from "../types";
@@ -26,6 +28,36 @@ type CustomImageBlockProps = CustomImageNodeViewProps & {
   src: string | undefined;
   downloadSrc: string | undefined;
 };
+
+function ImagePreviewTrigger({
+  enabled,
+  disabled,
+  onClick,
+  children,
+}: {
+  enabled: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <button
+      type="button"
+      className="focus-visible:outline-accent-primary block w-full cursor-zoom-in rounded-md focus-visible:outline-2"
+      disabled={disabled}
+      aria-label="Preview image"
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function CustomImageBlock(props: CustomImageBlockProps) {
   // props
@@ -51,6 +83,7 @@ export function CustomImageBlock(props: CustomImageBlockProps) {
     alignment: nodeAlignment,
     status,
   } = node.attrs;
+  const imagePreviewEnabled = !!useContext(ImagePreviewLabelsContext);
   // states
   const [size, setSize] = useState<TCustomImageSize>({
     width: ensurePixelString(nodeWidth, "35%") ?? "35%",
@@ -58,6 +91,20 @@ export function CustomImageBlock(props: CustomImageBlockProps) {
     aspectRatio: nodeAspectRatio || null,
   });
   const [isResizing, setIsResizing] = useState(false);
+  const [preview, setPreview] = useState<{ images: TImagePreviewItem[]; id: string } | null>(null);
+  const openPreview = () => {
+    if (!resolvedImageSrc || isResizing || !imageRef.current) return;
+    const elements = Array.from(
+      editor.view.dom.querySelectorAll<HTMLImageElement>("img[data-image-preview-id]")
+    ).filter((image) => image.dataset.imagePreviewReady === "true");
+    const images = elements.map((image, index) => ({
+      id: image.dataset.imagePreviewId!,
+      src: image.currentSrc || image.src,
+      downloadSrc: image.dataset.downloadSrc,
+      name: image.alt || `Image ${index + 1}`,
+    }));
+    setPreview({ images, id: imageRef.current.dataset.imagePreviewId! });
+  };
   const [initialResizeComplete, setInitialResizeComplete] = useState(false);
   // refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -247,65 +294,76 @@ export function CustomImageBlock(props: CustomImageBlockProps) {
         {showImageLoader && (
           <div className="animate-pulse rounded-md bg-layer-1" style={{ width: size.width, height: size.height }} />
         )}
-        <img
-          ref={imageRef}
-          src={displayedImageSrc}
-          alt=""
-          onLoad={handleImageLoad}
-          onError={(_e) =>
-            void (async () => {
-              // for old image extension this command doesn't exist or if the image failed to load for the first time
-              if (!extension.options.restoreImage || hasTriedRestoringImageOnce) {
-                setFailedToLoadImage(true);
-                return;
-              }
+        {preview && <ImagePreview images={preview.images} initialId={preview.id} onClose={() => setPreview(null)} />}
+        <ImagePreviewTrigger
+          enabled={imagePreviewEnabled}
+          disabled={!resolvedImageSrc || showImageLoader}
+          onClick={openPreview}
+        >
+          <img
+            data-image-preview-id={node.attrs[ECustomImageAttributeNames.ID] ?? imgNodeSrc}
+            data-image-preview-ready={!!resolvedImageSrc && !showImageLoader}
+            data-download-src={resolvedDownloadSrc}
+            ref={imageRef}
+            src={displayedImageSrc}
+            alt=""
+            onLoad={handleImageLoad}
+            onError={(_e) =>
+              void (async () => {
+                // for old image extension this command doesn't exist or if the image failed to load for the first time
+                if (!extension.options.restoreImage || hasTriedRestoringImageOnce) {
+                  setFailedToLoadImage(true);
+                  return;
+                }
 
-              try {
-                setHasErroredOnFirstLoad(true);
-                // this is a type error from tiptap, don't remove await until it's fixed
-                if (!imgNodeSrc) {
-                  throw new Error("No source image to restore from");
+                try {
+                  setHasErroredOnFirstLoad(true);
+                  // this is a type error from tiptap, don't remove await until it's fixed
+                  if (!imgNodeSrc) {
+                    throw new Error("No source image to restore from");
+                  }
+                  await extension.options.restoreImage?.(imgNodeSrc);
+                  if (!imageRef.current) {
+                    throw new Error("Image reference not found");
+                  }
+                  if (!resolvedImageSrc) {
+                    throw new Error("No resolved image source available");
+                  }
+                  if (isTouchDevice) {
+                    const refreshedSrc = await extension.options.getImageSource?.(imgNodeSrc);
+                    imageRef.current.src = refreshedSrc;
+                  } else {
+                    imageRef.current.src = resolvedImageSrc;
+                  }
+                } catch (error) {
+                  // if the image failed to even restore, then show the error state
+                  setFailedToLoadImage(true);
+                  console.error("Error while loading image", error);
+                } finally {
+                  setHasErroredOnFirstLoad(false);
+                  setHasTriedRestoringImageOnce(true);
                 }
-                await extension.options.restoreImage?.(imgNodeSrc);
-                if (!imageRef.current) {
-                  throw new Error("Image reference not found");
-                }
-                if (!resolvedImageSrc) {
-                  throw new Error("No resolved image source available");
-                }
-                if (isTouchDevice) {
-                  const refreshedSrc = await extension.options.getImageSource?.(imgNodeSrc);
-                  imageRef.current.src = refreshedSrc;
-                } else {
-                  imageRef.current.src = resolvedImageSrc;
-                }
-              } catch (error) {
-                // if the image failed to even restore, then show the error state
-                setFailedToLoadImage(true);
-                console.error("Error while loading image", error);
-              } finally {
-                setHasErroredOnFirstLoad(false);
-                setHasTriedRestoringImageOnce(true);
-              }
-            })()
-          }
-          width={size.width}
-          className={cn("image-component block rounded-md", {
-            // hide the image while the background calculations of the image loader are in progress (to avoid flickering) and show the loader until then
-            hidden: showImageLoader,
-            "read-only-image": !editor.isEditable,
-            "loading-image opacity-80 blur-sm": !resolvedImageSrc,
-          })}
-          style={{
-            width: size.width,
-            ...(size.aspectRatio && { aspectRatio: size.aspectRatio }),
-          }}
-        />
+              })()
+            }
+            width={size.width}
+            className={cn("image-component block rounded-md", {
+              // hide the image while the background calculations of the image loader are in progress (to avoid flickering) and show the loader until then
+              hidden: showImageLoader,
+              "read-only-image": !editor.isEditable,
+              "loading-image opacity-80 blur-sm": !resolvedImageSrc,
+            })}
+            style={{
+              width: size.width,
+              ...(size.aspectRatio && { aspectRatio: size.aspectRatio }),
+            }}
+          />
+        </ImagePreviewTrigger>
         {showUploadStatus && node.attrs[ECustomImageAttributeNames.ID] && (
           <ImageUploadStatus editor={editor} nodeId={node.attrs[ECustomImageAttributeNames.ID]} />
         )}
         {showImageToolbar && (
           <ImageToolbarRoot
+            onPreview={imagePreviewEnabled ? openPreview : undefined}
             alignment={nodeAlignment ?? "left"}
             editor={editor}
             aspectRatio={size.aspectRatio === null ? 1 : size.aspectRatio}

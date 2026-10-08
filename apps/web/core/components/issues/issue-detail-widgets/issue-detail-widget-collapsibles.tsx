@@ -34,7 +34,6 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
   const {
     issue: { getIssueById },
     subIssues: { subIssuesByIssueId },
-    attachment: { getAttachmentsCountByIssueId, getAttachmentsUploadStatusByIssueId },
     relation: { getRelationCountByIssueId },
   } = useIssueDetail(issueServiceType);
   // derived values
@@ -46,11 +45,7 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
   const shouldRenderSubIssues = !!subIssues && subIssues.length > 0 && !hideWidgets?.includes("sub-work-items");
   const shouldRenderRelations = issueRelationsCount > 0 && !hideWidgets?.includes("relations");
   const shouldRenderLinks = !!issue?.link_count && issue?.link_count > 0 && !hideWidgets?.includes("links");
-  const attachmentUploads = getAttachmentsUploadStatusByIssueId(issueId);
-  const attachmentsCount = getAttachmentsCountByIssueId(issueId);
-  const shouldRenderAttachments =
-    attachmentsCount > 0 ||
-    (!!attachmentUploads && attachmentUploads.length > 0 && !hideWidgets?.includes("attachments"));
+  const shouldRenderAttachments = !hideWidgets?.includes("attachments");
 
   return (
     <div className="flex flex-col">

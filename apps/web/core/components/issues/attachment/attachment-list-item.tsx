@@ -4,103 +4,145 @@
  * See the LICENSE file for details.
  */
 
+import { useState } from "react";
 import { observer } from "mobx-react";
-
+import { Download, ImageOff } from "lucide-react";
 import { useTranslation } from "@plane/i18n";
 import { TrashIcon } from "@plane/propel/icons";
-import { Tooltip } from "@plane/propel/tooltip";
 import type { TIssueServiceType } from "@plane/types";
 import { EIssueServiceType } from "@plane/types";
-// ui
 import { CustomMenu } from "@plane/ui";
-import { convertBytesToSize, getFileExtension, getFileName, getFileURL, renderFormattedDate } from "@plane/utils";
-// components
-//
+import { cn, convertBytesToSize, getFileExtension, getFileURL } from "@plane/utils";
 import { ButtonAvatars } from "@/components/dropdowns/member/avatar";
 import { getFileIcon } from "@/components/icons";
-// helpers
-// hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useMember } from "@/hooks/store/use-member";
-import { usePlatformOS } from "@/hooks/use-platform-os";
+import { isAttachmentImage } from "./attachment-image";
 
-type TIssueAttachmentsListItem = {
+type Props = {
   attachmentId: string;
   disabled?: boolean;
   issueServiceType?: TIssueServiceType;
+  onPreview: (id: string) => void;
 };
 
-export const IssueAttachmentsListItem = observer(function IssueAttachmentsListItem(props: TIssueAttachmentsListItem) {
+export const IssueAttachmentsListItem = observer(function IssueAttachmentsListItem({
+  attachmentId,
+  disabled,
+  issueServiceType = EIssueServiceType.ISSUES,
+  onPreview,
+}: Props) {
   const { t } = useTranslation();
-  // props
-  const { attachmentId, disabled, issueServiceType = EIssueServiceType.ISSUES } = props;
-  // store hooks
+  const [failed, setFailed] = useState(false);
   const { getUserDetails } = useMember();
   const {
     attachment: { getAttachmentById },
     toggleDeleteAttachmentModal,
   } = useIssueDetail(issueServiceType);
-  // derived values
-  const attachment = attachmentId ? getAttachmentById(attachmentId) : undefined;
-  const fileName = getFileName(attachment?.attributes.name ?? "");
-  const fileExtension = getFileExtension(attachment?.attributes.name ?? "");
-  const fileIcon = getFileIcon(fileExtension, 18);
-  const fileURL = getFileURL(attachment?.asset_url ?? "");
-  // hooks
-  const { isMobile } = usePlatformOS();
-
-  if (!attachment) return <></>;
+  const attachment = getAttachmentById(attachmentId);
+  if (!attachment) return null;
+  const name = attachment.attributes.name;
+  const url = getFileURL(attachment.asset_url);
+  const isImage = isAttachmentImage(attachment);
+  const uploader = getUserDetails(attachment.created_by)?.display_name;
+  const actions = (
+    <div className="flex shrink-0 items-center gap-1">
+      <a
+        href={url}
+        download={name}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={t("attachment.download")}
+        aria-label={t("attachment.download_named", { name })}
+        className="focus-visible:outline-accent-primary grid size-8 place-items-center rounded text-secondary hover:bg-layer-2 focus-visible:outline-2"
+      >
+        <Download className="size-4" />
+      </a>
+      {!disabled && (
+        <CustomMenu ellipsis closeOnSelect placement="bottom-end" ariaLabel={t("attachment.actions_named", { name })}>
+          <CustomMenu.MenuItem onClick={() => toggleDeleteAttachmentModal(attachmentId)}>
+            <div className="flex items-center gap-2">
+              <TrashIcon className="size-3.5" />
+              <span>{t("common.actions.delete")}</span>
+            </div>
+          </CustomMenu.MenuItem>
+        </CustomMenu>
+      )}
+    </div>
+  );
 
   return (
-    <>
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(fileURL, "_blank");
-        }}
-      >
-        <div className="group flex h-11 items-center justify-between gap-3 pr-2 pl-9 hover:bg-surface-2">
-          <div className="flex items-center gap-3 truncate text-13">
-            <div className="flex items-center gap-3">{fileIcon}</div>
-            <Tooltip tooltipContent={`${fileName}.${fileExtension}`} isMobile={isMobile}>
-              <p className="truncate font-medium text-secondary">{`${fileName}.${fileExtension}`}</p>
-            </Tooltip>
-            <span className="flex size-1.5 rounded-full bg-layer-1" />
-            <span className="flex-shrink-0 text-placeholder">{convertBytesToSize(attachment.attributes.size)}</span>
+    <div
+      data-attachment-id={attachmentId}
+      className={cn(
+        "group min-w-0 rounded-lg border border-subtle bg-surface-1",
+        isImage ? "overflow-hidden" : "flex items-center gap-3 px-3 py-2"
+      )}
+    >
+      {isImage ? (
+        <>
+          <button
+            type="button"
+            disabled={!url}
+            onClick={() => onPreview(attachmentId)}
+            aria-label={t("attachment.preview_named", { name })}
+            className="focus-visible:outline-accent-primary block w-full cursor-zoom-in text-left focus-visible:outline-2"
+          >
+            <span className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden border-b border-subtle bg-layer-1">
+              {failed ? (
+                <ImageOff className="size-8 text-tertiary" />
+              ) : (
+                <img
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="size-full object-contain p-2"
+                  onError={() => setFailed(true)}
+                />
+              )}
+            </span>
+            <span className="block px-3 pt-3">
+              <span className="line-clamp-2 text-13 font-medium break-all text-primary" title={name}>
+                {name}
+              </span>
+            </span>
+          </button>
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <span className="text-12 text-tertiary">{convertBytesToSize(attachment.attributes.size)}</span>
+            <div className="flex items-center gap-1">
+              {attachment.created_by && (
+                <span title={uploader}>
+                  <ButtonAvatars showTooltip userIds={attachment.created_by} />
+                </span>
+              )}
+              {actions}
+            </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            {attachment?.created_by && (
-              <>
-                <Tooltip
-                  isMobile={isMobile}
-                  tooltipContent={`${
-                    getUserDetails(attachment?.created_by)?.display_name ?? ""
-                  } uploaded on ${renderFormattedDate(attachment.updated_at)}`}
-                >
-                  <div className="flex items-center justify-center">
-                    <ButtonAvatars showTooltip userIds={attachment?.created_by} />
-                  </div>
-                </Tooltip>
-              </>
-            )}
-
-            <CustomMenu ellipsis closeOnSelect placement="bottom-end" disabled={disabled}>
-              <CustomMenu.MenuItem
-                onClick={() => {
-                  toggleDeleteAttachmentModal(attachmentId);
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <TrashIcon className="h-3.5 w-3.5" strokeWidth={2} />
-                  <span>{t("common.actions.delete")}</span>
-                </div>
-              </CustomMenu.MenuItem>
-            </CustomMenu>
-          </div>
-        </div>
-      </button>
-    </>
+        </>
+      ) : (
+        <>
+          <span className="shrink-0">{getFileIcon(getFileExtension(name), 24)}</span>
+          <a
+            href={url}
+            download={name}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="focus-visible:outline-accent-primary min-w-0 flex-1 rounded focus-visible:outline-2"
+          >
+            <span className="block truncate text-13 font-medium text-primary" title={name}>
+              {name}
+            </span>
+            <span className="text-12 text-tertiary">{convertBytesToSize(attachment.attributes.size)}</span>
+          </a>
+          {attachment.created_by && (
+            <span title={uploader}>
+              <ButtonAvatars showTooltip userIds={attachment.created_by} />
+            </span>
+          )}
+          {actions}
+        </>
+      )}
+    </div>
   );
 });

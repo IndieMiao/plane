@@ -92,7 +92,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
 
   return (
     <>
-      <div className="space-y-4 rounded-lg">
+      <div className="space-y-4 rounded-lg" data-work-item-section="details">
         {issue.parent_id && (
           <IssueParentDetail
             workspaceSlug={workspaceSlug}
