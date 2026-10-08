@@ -116,9 +116,11 @@ export const CommentCardDisplay = observer(function CommentCardDisplay(props: TC
           )}
         </div>
       )}
-      <div className="relative mb-3 flex w-full items-center gap-2">
-        <Avatar size="sm" name={displayName} src={getFileURL(avatarUrl)} className="shrink-0" />
-        <div className="flex flex-1 flex-wrap items-center gap-1">
+      <div className="relative mb-3 flex w-full items-center gap-3">
+        <div className="shrink-0">
+          <Avatar size={32} name={displayName} src={getFileURL(avatarUrl)} className="object-cover text-13" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
           <div className="text-caption-sm-medium">{displayName}</div>
           <div className="text-caption-sm-regular text-tertiary">
             commented{" "}
