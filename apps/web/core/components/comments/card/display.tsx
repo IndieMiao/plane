@@ -17,6 +17,7 @@ import type { TCommentsOperations, TIssueComment } from "@plane/types";
 import { calculateTimeAgo, cn, getFileURL, renderFormattedDate, renderFormattedTime } from "@plane/utils";
 // components
 import { LiteTextEditor } from "@/components/editor/lite-text";
+import { VirtualUserJobTitleTags } from "@/components/workspace/settings/virtual-user-job-title-tags";
 // local imports
 import { CommentReactions } from "../comment-reaction";
 import { CommentCardEditForm } from "./edit-form";
@@ -67,6 +68,11 @@ export const CommentCardDisplay = observer(function CommentCardDisplay(props: TC
     ? comment?.actor_detail?.first_name + `Bot`
     : (userDetails?.display_name ?? comment?.actor_detail?.display_name);
   const avatarUrl = userDetails?.avatar_url ?? comment?.actor_detail?.avatar_url;
+  const jobTitles =
+    userDetails?.job_titles ??
+    (userDetails?.job_title ? [userDetails.job_title] : undefined) ??
+    comment?.actor_detail?.job_titles ??
+    (comment?.actor_detail?.job_title ? [comment.actor_detail.job_title] : []);
 
   const userReactions = activityOperations.userReactions(comment.id);
 
@@ -116,12 +122,15 @@ export const CommentCardDisplay = observer(function CommentCardDisplay(props: TC
           )}
         </div>
       )}
-      <div className="relative mb-3 flex w-full items-center gap-3">
-        <div className="shrink-0">
+      <div className="relative mb-3 flex w-full items-start gap-3">
+        <div className="shrink-0 pt-0.5">
           <Avatar size={32} name={displayName} src={getFileURL(avatarUrl)} className="object-cover text-13" />
         </div>
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-          <div className="text-caption-sm-medium">{displayName}</div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="max-w-full text-caption-sm-medium break-words">{displayName}</div>
+            {jobTitles.length > 0 && <VirtualUserJobTitleTags values={jobTitles} className="contents" />}
+          </div>
           <div className="text-caption-sm-regular text-tertiary">
             commented{" "}
             <Tooltip
@@ -136,7 +145,7 @@ export const CommentCardDisplay = observer(function CommentCardDisplay(props: TC
           </div>
         </div>
         {!disabled && (
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1 pt-1">
             <EmojiReactionPicker
               isOpen={isPickerOpen}
               handleToggle={setIsPickerOpen}

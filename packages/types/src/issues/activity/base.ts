@@ -49,6 +49,8 @@ export type TIssueActivityUserDetail = {
   avatar_url: string;
   is_bot: boolean;
   display_name: string;
+  job_title?: string;
+  job_titles?: string[];
 };
 
 export type TIssueActivityComment =
