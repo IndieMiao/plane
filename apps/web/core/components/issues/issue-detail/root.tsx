@@ -238,8 +238,8 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
           }}
         />
       ) : (
-        <div className="flex h-full w-full overflow-hidden">
-          <div className="h-full w-full space-y-6 overflow-y-auto px-9 py-5">
+        <div className="flex h-full min-h-0 w-full overflow-hidden">
+          <div className="vertical-scrollbar scrollbar-md h-full w-full min-w-0 space-y-6 px-9 py-5 [scrollbar-gutter:stable]">
             <IssueMainContent
               workspaceSlug={workspaceSlug}
               projectId={projectId}
