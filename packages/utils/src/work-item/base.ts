@@ -281,7 +281,7 @@ export const getComputedDisplayFilters = (
     order_by: filters?.order_by || "sort_order",
     group_by: filters?.group_by || null,
     sub_group_by: filters?.sub_group_by || null,
-    sub_issue: filters?.sub_issue || false,
+    sub_issue: filters?.sub_issue ?? true,
     show_empty_groups: filters?.show_empty_groups || false,
   };
 };
