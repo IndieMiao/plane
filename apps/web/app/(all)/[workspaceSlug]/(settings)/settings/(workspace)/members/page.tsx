@@ -20,6 +20,7 @@ import { CountChip } from "@/components/common/count-chip";
 import { PageHead } from "@/components/core/page-title";
 import { MemberListFiltersDropdown } from "@/components/project/dropdowns/filters/member-list";
 import { WorkspaceMembersList } from "@/components/workspace/settings/members-list";
+import { CreateVirtualUserModal } from "@/components/workspace/settings/create-virtual-user-modal";
 // hooks
 import { useMember } from "@/hooks/store/use-member";
 import { useWorkspace } from "@/hooks/store/use-workspace";
@@ -35,6 +36,7 @@ import { MembersWorkspaceSettingsHeader } from "./header";
 const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsPage({ params }: Route.ComponentProps) {
   // states
   const [inviteModal, setInviteModal] = useState(false);
+  const [virtualUserModal, setVirtualUserModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   // router
   const { workspaceSlug } = params;
@@ -103,6 +105,9 @@ const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsP
   return (
     <SettingsContentWrapper header={<MembersWorkspaceSettingsHeader />} hugging>
       <PageHead title={pageTitle} />
+      {virtualUserModal && canPerformWorkspaceAdminActions && (
+        <CreateVirtualUserModal workspaceSlug={workspaceSlug} onClose={() => setVirtualUserModal(false)} />
+      )}
       <SendWorkspaceInvitationModal
         isOpen={inviteModal}
         onClose={() => setInviteModal(false)}
@@ -138,6 +143,11 @@ const WorkspaceMembersSettingsPage = observer(function WorkspaceMembersSettingsP
               memberType="workspace"
             />
             <MembersActivityButton workspaceSlug={workspaceSlug} />
+            {canPerformWorkspaceAdminActions && (
+              <Button variant="secondary" size="lg" onClick={() => setVirtualUserModal(true)}>
+                {t("workspace_settings.settings.members.virtual_user.create")}
+              </Button>
+            )}
             {canPerformWorkspaceAdminActions && (
               <Button variant="primary" size="lg" onClick={() => setInviteModal(true)}>
                 {t("workspace_settings.settings.members.add_member")}

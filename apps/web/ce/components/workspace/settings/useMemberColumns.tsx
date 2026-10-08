@@ -12,6 +12,7 @@ import { renderFormattedDate } from "@plane/utils";
 import { MemberHeaderColumn } from "@/components/project/member-header-column";
 import type { RowData } from "@/components/workspace/settings/member-columns";
 import { AccountTypeColumn, NameColumn } from "@/components/workspace/settings/member-columns";
+import { MemberJobTitles } from "@/components/workspace/settings/member-job-titles";
 import { useMember } from "@/hooks/store/use-member";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
 import type { IMemberFilters } from "@/store/member/utils";
@@ -83,13 +84,28 @@ export const useMemberColumns = () => {
       key: "Email address",
       content: t("workspace_settings.settings.members.details.email_address"),
       tdRender: (rowData: RowData) => (
-        <div className={`w-48 truncate ${isSuspended(rowData) ? "text-placeholder" : ""}`}>{rowData.member.email}</div>
+        <div className={`w-48 truncate ${isSuspended(rowData) ? "text-placeholder" : ""}`}>
+          {rowData.member.is_virtual ? "—" : rowData.member.email}
+        </div>
       ),
       thRender: () => (
         <MemberHeaderColumn
           property="email"
           displayFilters={filters}
           handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+        />
+      ),
+    },
+
+    {
+      key: "Job title",
+      content: t("workspace_settings.settings.members.virtual_user.job_title_column"),
+      tdRender: (rowData: RowData) => (
+        <MemberJobTitles
+          workspaceSlug={workspaceSlug}
+          member={rowData.member}
+          canEdit={isAdmin}
+          isSuspended={isSuspended(rowData)}
         />
       ),
     },

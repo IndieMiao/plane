@@ -29,6 +29,9 @@ export interface IUserLite {
   first_name: string;
   id: string;
   is_bot: boolean;
+  is_virtual?: boolean;
+  job_title?: string;
+  job_titles?: string[];
   last_name: string;
   joining_date?: string;
 }

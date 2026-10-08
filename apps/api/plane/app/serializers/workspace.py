@@ -82,12 +82,19 @@ class WorkspaceLiteSerializer(BaseSerializer):
         read_only_fields = fields
 
 
-class WorkSpaceMemberSerializer(DynamicBaseSerializer):
+class WorkspaceMemberJobTitlesMixin:
+    def to_representation(self, instance):
+        instance.member._workspace_job_titles = instance.job_titles
+        return super().to_representation(instance)
+
+
+class WorkSpaceMemberSerializer(WorkspaceMemberJobTitlesMixin, DynamicBaseSerializer):
     member = UserLiteSerializer(read_only=True)
 
     class Meta:
         model = WorkspaceMember
         fields = "__all__"
+        read_only_fields = ["job_titles"]
 
 
 class WorkspaceMemberMeSerializer(BaseSerializer):
@@ -96,14 +103,16 @@ class WorkspaceMemberMeSerializer(BaseSerializer):
     class Meta:
         model = WorkspaceMember
         fields = "__all__"
+        read_only_fields = ["job_titles"]
 
 
-class WorkspaceMemberAdminSerializer(DynamicBaseSerializer):
+class WorkspaceMemberAdminSerializer(WorkspaceMemberJobTitlesMixin, DynamicBaseSerializer):
     member = UserAdminLiteSerializer(read_only=True)
 
     class Meta:
         model = WorkspaceMember
         fields = "__all__"
+        read_only_fields = ["job_titles"]
 
 
 class WorkSpaceMemberInviteSerializer(BaseSerializer):

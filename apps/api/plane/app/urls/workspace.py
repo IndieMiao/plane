@@ -3,6 +3,11 @@
 # See the LICENSE file for details.
 
 from django.urls import path
+from plane.app.views.workspace.virtual_user import (
+    WorkspaceVirtualUserEndpoint,
+    WorkspaceVirtualUserJobTitleEndpoint,
+    WorkspaceMemberJobTitlesEndpoint,
+)
 
 
 from plane.app.views import (
@@ -40,6 +45,21 @@ from plane.app.views import (
 
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/members/<uuid:user_id>/job-titles/",
+        WorkspaceMemberJobTitlesEndpoint.as_view(http_method_names=["patch", "options"]),
+        name="workspace-member-job-titles",
+    ),
+    path(
+        "workspaces/<str:slug>/virtual-user-job-titles/",
+        WorkspaceVirtualUserJobTitleEndpoint.as_view(),
+        name="workspace-virtual-user-job-titles",
+    ),
+    path(
+        "workspaces/<str:slug>/virtual-users/",
+        WorkspaceVirtualUserEndpoint.as_view(),
+        name="workspace-virtual-users",
+    ),
     path(
         "workspace-slug-check/",
         WorkSpaceAvailabilityCheckEndpoint.as_view(),

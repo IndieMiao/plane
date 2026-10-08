@@ -3,6 +3,11 @@
 # See the LICENSE file for details.
 
 from django.urls import path
+from plane.api.views.virtual_user import (
+    WorkspaceVirtualUserAPIEndpoint,
+    WorkspaceVirtualUserJobTitleAPIEndpoint,
+    WorkspaceMemberJobTitlesAPIEndpoint,
+)
 
 from plane.api.views import (
     ProjectMemberListCreateAPIEndpoint,
@@ -11,6 +16,21 @@ from plane.api.views import (
 )
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/members/<uuid:user_id>/job-titles/",
+        WorkspaceMemberJobTitlesAPIEndpoint.as_view(http_method_names=["patch", "options"]),
+        name="workspace-member-job-titles-api",
+    ),
+    path(
+        "workspaces/<str:slug>/virtual-user-job-titles/",
+        WorkspaceVirtualUserJobTitleAPIEndpoint.as_view(),
+        name="workspace-virtual-user-job-titles-api",
+    ),
+    path(
+        "workspaces/<str:slug>/virtual-users/",
+        WorkspaceVirtualUserAPIEndpoint.as_view(),
+        name="workspace-virtual-users-api",
+    ),
     # Project members
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/members/",

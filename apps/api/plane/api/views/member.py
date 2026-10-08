@@ -16,6 +16,7 @@ from .base import BaseAPIView
 from plane.api.serializers import UserLiteSerializer, ProjectMemberSerializer
 from plane.db.models import User, Workspace, WorkspaceMember, ProjectMember
 from plane.utils.permissions import ProjectMemberPermission, WorkSpaceAdminPermission, ProjectAdminPermission
+from plane.utils.virtual_user_job_titles import with_workspace_job_titles
 from plane.utils.openapi import (
     WORKSPACE_SLUG_PARAMETER,
     PROJECT_ID_PARAMETER,
@@ -84,6 +85,7 @@ class WorkspaceMemberAPIEndpoint(BaseAPIView):
         # Get all the users with their roles
         users_with_roles = []
         for workspace_member in workspace_members:
+            workspace_member.member._workspace_job_titles = workspace_member.job_titles
             user_data = UserLiteSerializer(workspace_member.member).data
             user_data["role"] = workspace_member.role
             users_with_roles.append(user_data)
@@ -137,7 +139,9 @@ class ProjectMemberListCreateAPIEndpoint(BaseAPIView):
         )
 
         # Get all the users that are present inside the workspace
-        users = UserLiteSerializer(User.objects.filter(id__in=project_members), many=True).data
+        users = UserLiteSerializer(
+            with_workspace_job_titles(User.objects.filter(id__in=project_members), workspace__slug=slug), many=True
+        ).data
         return Response(users, status=status.HTTP_200_OK)
 
     @extend_schema(
@@ -187,7 +191,7 @@ class ProjectMemberDetailAPIEndpoint(ProjectMemberListCreateAPIEndpoint):
 
         # Get the workspace members that are present inside the workspace
         project_members = ProjectMember.objects.get(project_id=project_id, workspace__slug=slug, pk=pk)
-        user = User.objects.get(id=project_members.member_id)
+        user = with_workspace_job_titles(User.objects.filter(id=project_members.member_id), workspace__slug=slug).get()
         user = UserLiteSerializer(user).data
         return Response(user, status=status.HTTP_200_OK)
 

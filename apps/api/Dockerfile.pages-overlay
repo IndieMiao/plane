@@ -1,8 +1,8 @@
 ARG PLANE_BASE_IMAGE=makeplane/plane-backend:v1.3.1
 FROM ${PLANE_BASE_IMAGE}
 
-LABEL org.opencontainers.image.title="Plane Community Pages API overlay"
-LABEL org.opencontainers.image.description="Adds project Pages endpoints to the Plane Community public API"
+LABEL org.opencontainers.image.title="Plane Community Pages and virtual users overlay"
+LABEL org.opencontainers.image.description="Adds project Pages and assignment-only virtual users to Plane Community"
 
 COPY plane/api/serializers/__init__.py /code/plane/api/serializers/__init__.py
 COPY plane/api/serializers/page.py /code/plane/api/serializers/page.py
@@ -16,3 +16,27 @@ COPY plane/utils/path_validator.py /code/plane/utils/path_validator.py
 COPY plane/app/views/issue/attachment.py /code/plane/app/views/issue/attachment.py
 COPY plane/api/views/asset.py /code/plane/api/views/asset.py
 COPY plane/api/views/issue.py /code/plane/api/views/issue.py
+COPY plane/db/models/user.py /code/plane/db/models/user.py
+COPY plane/db/migrations/0122_user_is_virtual.py /code/plane/db/migrations/0122_user_is_virtual.py
+COPY plane/db/migrations/0123_virtual_user_job_titles.py /code/plane/db/migrations/0123_virtual_user_job_titles.py
+COPY plane/db/migrations/0124_user_job_titles.py /code/plane/db/migrations/0124_user_job_titles.py
+COPY plane/db/migrations/0125_workspace_member_job_titles.py /code/plane/db/migrations/0125_workspace_member_job_titles.py
+COPY plane/app/serializers/workspace.py /code/plane/app/serializers/workspace.py
+COPY plane/api/views/member.py /code/plane/api/views/member.py
+COPY plane/api/serializers/issue.py /code/plane/api/serializers/issue.py
+COPY plane/db/models/__init__.py /code/plane/db/models/__init__.py
+COPY plane/db/models/workspace.py /code/plane/db/models/workspace.py
+COPY plane/utils/virtual_user_job_titles.py /code/plane/utils/virtual_user_job_titles.py
+COPY plane/api/middleware/api_authentication.py /code/plane/api/middleware/api_authentication.py
+COPY plane/api/serializers/user.py /code/plane/api/serializers/user.py
+COPY plane/api/urls/member.py /code/plane/api/urls/member.py
+COPY plane/api/views/virtual_user.py /code/plane/api/views/virtual_user.py
+COPY plane/app/middleware/api_authentication.py /code/plane/app/middleware/api_authentication.py
+COPY plane/app/serializers/user.py /code/plane/app/serializers/user.py
+COPY plane/app/serializers/virtual_user.py /code/plane/app/serializers/virtual_user.py
+COPY plane/app/urls/workspace.py /code/plane/app/urls/workspace.py
+COPY plane/app/views/workspace/virtual_user.py /code/plane/app/views/workspace/virtual_user.py
+COPY plane/authentication/adapter/base.py /code/plane/authentication/adapter/base.py
+COPY plane/authentication/utils/login.py /code/plane/authentication/utils/login.py
+COPY plane/bgtasks/project_add_user_email_task.py /code/plane/bgtasks/project_add_user_email_task.py
+COPY plane/utils/permissions/workspace.py /code/plane/utils/permissions/workspace.py

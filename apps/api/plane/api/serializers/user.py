@@ -22,6 +22,8 @@ class UserLiteSerializer(BaseSerializer):
         help_text="Avatar URL",
         read_only=True,
     )
+    job_title = serializers.CharField(source="effective_job_title", read_only=True)
+    job_titles = serializers.ListField(child=serializers.CharField(), source="effective_job_titles", read_only=True)
 
     class Meta:
         model = User
@@ -33,6 +35,8 @@ class UserLiteSerializer(BaseSerializer):
             "avatar",
             "avatar_url",
             "display_name",
-            "email",
+            "is_virtual",
+            "job_title",
+            "job_titles",
         ]
         read_only_fields = fields

@@ -9,6 +9,7 @@ import uuid
 
 import pytz
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
+from django.contrib.postgres.fields import ArrayField
 
 # Django imports
 from django.db import models
@@ -113,6 +114,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     # my_issues_prop = models.JSONField(null=True)
 
     is_bot = models.BooleanField(default=False)
+    # Assignment-only identities managed by workspace administrators.
+    is_virtual = models.BooleanField(default=False)
+    job_title = models.CharField(max_length=255, blank=True, default="")
+    job_titles = ArrayField(models.CharField(max_length=255), blank=True, default=list)
     bot_type = models.CharField(max_length=30, verbose_name="Bot Type", blank=True, null=True)
 
     # timezone
@@ -138,6 +143,19 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.username} <{self.email}>"
+
+    @property
+    def effective_job_titles(self):
+        workspace_titles = getattr(self, "_workspace_job_titles", None)
+        if workspace_titles is not None:
+            return workspace_titles
+        # Old clients/containers may still write the single-title field.
+        return self.job_titles or ([self.job_title] if self.job_title else [])
+
+    @property
+    def effective_job_title(self):
+        titles = self.effective_job_titles
+        return titles[0] if titles else ""
 
     @property
     def avatar_url(self):
@@ -304,9 +322,9 @@ def create_user_notification(sender, instance, created, **kwargs):
 
         UserNotificationPreference.objects.create(
             user=instance,
-            property_change=True,
-            state_change=True,
-            comment=True,
-            mention=True,
-            issue_completed=True,
+            property_change=not instance.is_virtual,
+            state_change=not instance.is_virtual,
+            comment=not instance.is_virtual,
+            mention=not instance.is_virtual,
+            issue_completed=not instance.is_virtual,
         )

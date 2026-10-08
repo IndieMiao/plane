@@ -7,11 +7,13 @@
 import { useState } from "react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 import type { IWorkspaceMember, TProjectMembership } from "@plane/types";
 import { renderFormattedDate } from "@plane/utils";
 // components
 import { MemberHeaderColumn } from "@/components/project/member-header-column";
 import { AccountTypeColumn, NameColumn } from "@/components/project/settings/member-columns";
+import { VirtualUserJobTitleTags } from "@/components/workspace/settings/virtual-user-job-title-tags";
 // hooks
 import { useMember } from "@/hooks/store/use-member";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
@@ -28,6 +30,7 @@ type TUseProjectColumnsProps = {
 
 export const useProjectColumns = (props: TUseProjectColumnsProps) => {
   const { projectId, workspaceSlug } = props;
+  const { t } = useTranslation();
   // states
   const [removeMemberModal, setRemoveMemberModal] = useState<RowData | null>(null);
 
@@ -77,6 +80,22 @@ export const useProjectColumns = (props: TUseProjectColumnsProps) => {
           setRemoveMemberModal={setRemoveMemberModal}
         />
       ),
+    },
+    {
+      key: "Job titles",
+      content: t("workspace_settings.settings.members.virtual_user.job_title_column"),
+      tdRender: (rowData: RowData) => {
+        const titles = rowData.member.job_titles?.length
+          ? rowData.member.job_titles
+          : rowData.member.job_title
+            ? [rowData.member.job_title]
+            : [];
+        return (
+          <div className="max-w-64 min-w-36 py-1">
+            {titles.length ? <VirtualUserJobTitleTags values={titles} /> : "—"}
+          </div>
+        );
+      },
     },
     {
       key: "Display Name",

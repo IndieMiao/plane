@@ -5,6 +5,7 @@
  */
 
 import { observer } from "mobx-react";
+import { useTranslation } from "@plane/i18n";
 import Link from "next/link";
 import { Controller, useForm } from "react-hook-form";
 
@@ -44,6 +45,7 @@ type AccountTypeProps = {
 
 export function NameColumn(props: NameProps) {
   const { rowData, workspaceSlug, isAdmin, currentUser, setRemoveMemberModal } = props;
+  const { t } = useTranslation();
   // derived values
   const { avatar_url, display_name, email, first_name, id, last_name } = rowData.member;
   const isSuspended = rowData.is_active === false;
@@ -78,6 +80,11 @@ export function NameColumn(props: NameProps) {
               <span className={isSuspended ? "text-placeholder" : ""}>
                 {first_name} {last_name}
               </span>
+              {rowData.member.is_virtual && (
+                <Pill variant={EPillVariant.DEFAULT} size={EPillSize.XS}>
+                  {t("workspace_settings.settings.members.virtual_user.label")}
+                </Pill>
+              )}
             </div>
 
             {!isSuspended && (isAdmin || id === currentUser?.id) && (

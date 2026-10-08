@@ -9,9 +9,15 @@ from django.conf import settings
 # Module imports
 from plane.utils.host import base_host
 from plane.utils.ip_address import get_client_ip
+from plane.authentication.adapter.error import AuthenticationException, AUTHENTICATION_ERROR_CODES
 
 
 def user_login(request, user, is_app=False, is_admin=False, is_space=False):
+    if user.is_virtual:
+        raise AuthenticationException(
+            error_code=AUTHENTICATION_ERROR_CODES["USER_ACCOUNT_DEACTIVATED"],
+            error_message="USER_ACCOUNT_DEACTIVATED",
+        )
     login(request=request, user=user)
 
     # If is admin cookie set the custom age

@@ -31,6 +31,7 @@ from plane.utils.content_validator import (
     validate_html_content,
     validate_binary_data,
 )
+from plane.utils.virtual_user_job_titles import with_workspace_job_titles
 
 from .base import BaseSerializer
 from .cycle import CycleLiteSerializer, CycleSerializer
@@ -294,8 +295,11 @@ class IssueSerializer(BaseSerializer):
                 from .user import UserLiteSerializer
 
                 data["assignees"] = UserLiteSerializer(
-                    User.objects.filter(
-                        pk__in=IssueAssignee.objects.filter(issue=instance).values_list("assignee_id", flat=True)
+                    with_workspace_job_titles(
+                        User.objects.filter(
+                            pk__in=IssueAssignee.objects.filter(issue=instance).values_list("assignee_id", flat=True)
+                        ),
+                        workspace_id=instance.workspace_id,
                     ),
                     many=True,
                 ).data
@@ -836,7 +840,11 @@ class IssueExpandSerializer(BaseSerializer):
     def get_assignees(self, obj):
         expand = self.context.get("expand", [])
         if "assignees" in expand:
-            return UserLiteSerializer([ia.assignee for ia in obj.issue_assignee.all()], many=True).data
+            users = with_workspace_job_titles(
+                User.objects.filter(pk__in=[ia.assignee_id for ia in obj.issue_assignee.all()]),
+                workspace_id=obj.workspace_id,
+            )
+            return UserLiteSerializer(users, many=True).data
         return [ia.assignee_id for ia in obj.issue_assignee.all()]
 
     class Meta:

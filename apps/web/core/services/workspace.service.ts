@@ -7,6 +7,7 @@
 import { API_BASE_URL } from "@plane/constants";
 import type {
   IWorkspace,
+  IUserLite,
   IWorkspaceMemberMe,
   IWorkspaceMember,
   IWorkspaceMemberInvitation,
@@ -35,9 +36,44 @@ export class WorkspaceService extends APIService {
     super(API_BASE_URL);
   }
 
+  async createVirtualUser(
+    workspaceSlug: string,
+    data: { display_name: string; project_ids: string[]; job_title?: string; job_titles?: string[] }
+  ): Promise<IUserLite> {
+    return this.post(`/api/workspaces/${workspaceSlug}/virtual-users/`, data)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
   async userWorkspaces(): Promise<IWorkspace[]> {
     return this.get("/api/users/me/workspaces/")
       .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async fetchVirtualUserJobTitles(workspaceSlug: string): Promise<string[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/virtual-user-job-titles/`)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async createVirtualUserJobTitle(workspaceSlug: string, name: string): Promise<{ name: string }> {
+    return this.post(`/api/workspaces/${workspaceSlug}/virtual-user-job-titles/`, { name })
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateMemberJobTitles(workspaceSlug: string, userId: string, jobTitles: string[]): Promise<IUserLite> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/members/${userId}/job-titles/`, { job_titles: jobTitles })
+      .then((response) => response.data)
       .catch((error) => {
         throw error?.response?.data;
       });

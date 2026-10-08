@@ -92,6 +92,9 @@ export interface IWorkspaceMember {
   display_name?: string;
   last_login_medium?: TLoginMediums;
   is_active?: boolean;
+  is_virtual?: boolean;
+  job_title?: string;
+  job_titles?: string[];
 }
 
 export interface IWorkspaceMemberMe {

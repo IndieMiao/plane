@@ -10,6 +10,8 @@ from typing import Optional, Any
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
+from django.db.models.functions import Lower
 
 # Module imports
 from .base import BaseModel
@@ -195,6 +197,23 @@ class WorkspaceBaseModel(BaseModel):
         super(WorkspaceBaseModel, self).save(*args, **kwargs)
 
 
+class WorkspaceJobTitle(BaseModel):
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="job_titles")
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = "workspace_job_titles"
+        ordering = ("created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                Lower("name"),
+                "workspace",
+                condition=models.Q(deleted_at__isnull=True),
+                name="workspace_job_title_unique_name",
+            ),
+        ]
+
+
 class WorkspaceMember(BaseModel):
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="workspace_member")
     member = models.ForeignKey(
@@ -204,6 +223,8 @@ class WorkspaceMember(BaseModel):
     )
     role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, default=5)
     company_role = models.TextField(null=True, blank=True)
+    # Null preserves legacy user-level titles; [] explicitly clears this workspace's titles.
+    job_titles = ArrayField(models.CharField(max_length=255), blank=True, null=True, default=None)
     view_props = models.JSONField(default=get_default_props)
     default_props = models.JSONField(default=get_default_props)
     issue_props = models.JSONField(default=get_issue_props)

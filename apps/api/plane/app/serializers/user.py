@@ -49,6 +49,9 @@ class UserSerializer(BaseSerializer):
             "last_login_medium",
             "created_location",
             "is_bot",
+            "is_virtual",
+            "job_title",
+            "job_titles",
             "is_password_autoset",
             "is_email_verified",
             "is_active",
@@ -61,6 +64,9 @@ class UserSerializer(BaseSerializer):
 
 
 class UserMeSerializer(BaseSerializer):
+    job_title = serializers.CharField(source="effective_job_title", read_only=True)
+    job_titles = serializers.ListField(child=serializers.CharField(), source="effective_job_titles", read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -76,6 +82,9 @@ class UserMeSerializer(BaseSerializer):
             "last_name",
             "is_active",
             "is_bot",
+            "is_virtual",
+            "job_title",
+            "job_titles",
             "is_email_verified",
             "user_timezone",
             "username",
@@ -139,6 +148,9 @@ class UserMeSettingsSerializer(BaseSerializer):
 
 
 class UserLiteSerializer(BaseSerializer):
+    job_title = serializers.CharField(source="effective_job_title", read_only=True)
+    job_titles = serializers.ListField(child=serializers.CharField(), source="effective_job_titles", read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -148,12 +160,18 @@ class UserLiteSerializer(BaseSerializer):
             "avatar",
             "avatar_url",
             "is_bot",
+            "is_virtual",
+            "job_title",
+            "job_titles",
             "display_name",
         ]
-        read_only_fields = ["id", "is_bot"]
+        read_only_fields = ["id", "is_bot", "is_virtual", "job_title", "job_titles"]
 
 
 class UserAdminLiteSerializer(BaseSerializer):
+    job_title = serializers.CharField(source="effective_job_title", read_only=True)
+    job_titles = serializers.ListField(child=serializers.CharField(), source="effective_job_titles", read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -163,11 +181,14 @@ class UserAdminLiteSerializer(BaseSerializer):
             "avatar",
             "avatar_url",
             "is_bot",
+            "is_virtual",
+            "job_title",
+            "job_titles",
             "display_name",
             "email",
             "last_login_medium",
         ]
-        read_only_fields = ["id", "is_bot"]
+        read_only_fields = ["id", "is_bot", "is_virtual", "job_title", "job_titles"]
 
 
 class ChangePasswordSerializer(serializers.Serializer):

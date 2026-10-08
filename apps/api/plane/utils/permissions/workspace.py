@@ -71,6 +71,18 @@ class WorkSpaceAdminPermission(BasePermission):
         ).exists()
 
 
+class WorkspaceVirtualUserPermission(BasePermission):
+    def has_permission(self, request, view):
+        if request.user.is_anonymous or request.user.is_virtual:
+            return False
+        return WorkspaceMember.objects.filter(
+            workspace__slug=view.workspace_slug,
+            member=request.user,
+            role__in=[Admin, Member] if request.method in SAFE_METHODS else [Admin],
+            is_active=True,
+        ).exists()
+
+
 class WorkspaceEntityPermission(BasePermission):
     def has_permission(self, request, view):
         if request.user.is_anonymous:

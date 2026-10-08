@@ -51,6 +51,7 @@ export interface IWorkspaceMemberStore {
   fetchWorkspaceMemberInvitations: (workspaceSlug: string) => Promise<IWorkspaceMemberInvitation[]>;
   // crud actions
   updateMember: (workspaceSlug: string, userId: string, data: { role: EUserPermissions }) => Promise<void>;
+  updateMemberJobTitles: (workspaceSlug: string, userId: string, jobTitles: string[]) => Promise<void>;
   removeMemberFromWorkspace: (workspaceSlug: string, userId: string) => Promise<void>;
   // invite actions
   inviteMembersToWorkspace: (workspaceSlug: string, data: IWorkspaceBulkInviteFormData) => Promise<void>;
@@ -90,6 +91,7 @@ export class WorkspaceMemberStore implements IWorkspaceMemberStore {
       // actions
       fetchWorkspaceMembers: action,
       updateMember: action,
+      updateMemberJobTitles: action,
       removeMemberFromWorkspace: action,
       fetchWorkspaceMemberInvitations: action,
       updateMemberInvitation: action,
@@ -255,6 +257,18 @@ export class WorkspaceMemberStore implements IWorkspaceMemberStore {
    * @param userId
    * @param data
    */
+  updateMemberJobTitles = async (workspaceSlug: string, userId: string, jobTitles: string[]) => {
+    const user = await this.workspaceService.updateMemberJobTitles(workspaceSlug, userId, jobTitles);
+    runInAction(() => {
+      if (this.routerStore.workspaceSlug !== workspaceSlug) return;
+      set(this.memberRoot.memberMap, userId, {
+        ...this.memberRoot.memberMap[userId],
+        job_title: user.job_title,
+        job_titles: user.job_titles,
+      });
+    });
+  };
+
   updateMember = async (workspaceSlug: string, userId: string, data: { role: EUserPermissions }) => {
     const memberDetails = this.getWorkspaceMemberDetails(userId);
     if (!memberDetails) throw new Error("Member not found");
