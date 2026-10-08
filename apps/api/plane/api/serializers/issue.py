@@ -9,6 +9,7 @@ from django.db import IntegrityError
 
 #  Third party imports
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 # Module imports
 from plane.db.models import (
@@ -26,6 +27,7 @@ from plane.db.models import (
     State,
     User,
     EstimatePoint,
+    WorkspaceMember,
 )
 from plane.utils.content_validator import (
     validate_html_content,
@@ -699,6 +701,54 @@ class IssueCommentCreateSerializer(BaseSerializer):
     access control, and external integration tracking.
     """
 
+    virtual_user_id = serializers.UUIDField(
+        source="actor",
+        required=False,
+        write_only=True,
+        help_text="Optional virtual user UUID. The caller and identity must be active project and workspace members.",
+    )
+
+    def validate_virtual_user_id(self, value):
+        if self.instance is not None:
+            raise serializers.ValidationError("The comment author cannot be changed.")
+
+        request = self.context["request"]
+        slug = self.context["view"].workspace_slug
+        project_id = self.context["view"].project_id
+        if (
+            not request.user.is_active
+            or request.user.is_virtual
+            or not WorkspaceMember.objects.filter(
+                workspace__slug=slug, member=request.user, is_active=True, role__in=[15, 20]
+            ).exists()
+            or not ProjectMember.objects.filter(
+                workspace__slug=slug, project_id=project_id, member=request.user, is_active=True, role__in=[15, 20]
+            ).exists()
+        ):
+            raise PermissionDenied("Only active workspace and project members can comment as a virtual user.")
+
+        membership = (
+            ProjectMember.objects.filter(
+                workspace__slug=slug,
+                project_id=project_id,
+                member_id=value,
+                member__is_virtual=True,
+                is_active=True,
+                role__in=[15, 20],
+            )
+            .select_related("member")
+            .first()
+        )
+        if (
+            membership is None
+            or not WorkspaceMember.objects.filter(
+                workspace__slug=slug, member_id=value, is_active=True, role__in=[15, 20]
+            ).exists()
+        ):
+            raise serializers.ValidationError("Choose a virtual user who is an active member of this project.")
+
+        return membership.member
+
     class Meta:
         model = IssueComment
         fields = [
@@ -707,6 +757,7 @@ class IssueCommentCreateSerializer(BaseSerializer):
             "access",
             "external_source",
             "external_id",
+            "virtual_user_id",
         ]
         read_only_fields = [
             "id",

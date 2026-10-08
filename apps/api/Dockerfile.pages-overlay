@@ -2,7 +2,7 @@ ARG PLANE_BASE_IMAGE=makeplane/plane-backend:v1.3.1
 FROM ${PLANE_BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="Plane Community Pages and virtual users overlay"
-LABEL org.opencontainers.image.description="Adds project Pages and assignment-only virtual users to Plane Community"
+LABEL org.opencontainers.image.description="Adds project Pages and virtual users for assignment and comments to Plane Community"
 
 COPY plane/api/serializers/__init__.py /code/plane/api/serializers/__init__.py
 COPY plane/api/serializers/page.py /code/plane/api/serializers/page.py

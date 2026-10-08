@@ -1393,7 +1393,7 @@ class IssueCommentListCreateAPIEndpoint(BaseAPIView):
 
     @issue_comment_docs(
         operation_id="create_work_item_comment",
-        description="Add a new comment to a work item with HTML content.",
+        description="Add a comment, optionally attributed to a project virtual user using virtual_user_id.",
         parameters=[
             ISSUE_ID_PARAMETER,
         ],
@@ -1416,8 +1416,10 @@ class IssueCommentListCreateAPIEndpoint(BaseAPIView):
         """Create work item comment
 
         Add a new comment to a work item with HTML content.
-        Supports external ID tracking for integration purposes.
+        Supports virtual user attribution and external ID tracking.
+        The authenticated caller remains the creator for audit purposes.
         """
+        Issue.objects.get(pk=issue_id, project_id=project_id, workspace__slug=slug, project__archived_at__isnull=True)
         # Validation check if the issue already exists
         if (
             request.data.get("external_id")
@@ -1443,20 +1445,24 @@ class IssueCommentListCreateAPIEndpoint(BaseAPIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        serializer = IssueCommentCreateSerializer(data=request.data)
+        serializer = IssueCommentCreateSerializer(data=request.data, context=self.get_serializer_context())
         if serializer.is_valid():
-            serializer.save(project_id=project_id, issue_id=issue_id, actor=request.user)
+            serializer.save(
+                project_id=project_id,
+                issue_id=issue_id,
+                actor=serializer.validated_data.get("actor", request.user),
+            )
             issue_comment = IssueComment.objects.get(pk=serializer.instance.id)
-            # Update the created_at and the created_by and save the comment
+            # Attribution is separate from the authenticated caller's audit identity.
             issue_comment.created_at = request.data.get("created_at", timezone.now())
-            issue_comment.created_by_id = request.data.get("created_by", request.user.id)
-            issue_comment.actor_id = request.data.get("created_by", request.user.id)
-            issue_comment.save(update_fields=["created_at", "created_by"])
+            issue_comment.created_by_id = request.user.id
+            issue_comment.save(update_fields=["created_at", "created_by"], disable_auto_set_user=True)
+            serializer = IssueCommentSerializer(issue_comment)
 
             issue_activity.delay(
                 type="comment.activity.created",
                 requested_data=json.dumps(serializer.data, cls=DjangoJSONEncoder),
-                actor_id=str(issue_comment.created_by_id),
+                actor_id=str(request.user.id),
                 issue_id=str(self.kwargs.get("issue_id")),
                 project_id=str(self.kwargs.get("project_id")),
                 current_instance=None,
@@ -1474,7 +1480,6 @@ class IssueCommentListCreateAPIEndpoint(BaseAPIView):
                 origin=base_host(request=request, is_app=True),
             )
 
-            serializer = IssueCommentSerializer(issue_comment)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
