@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 from django.urls import path
+from plane.api.views.work_item_images import WorkItemDescriptionImagesEndpoint
 
 from plane.api.views import (
     IssueListCreateAPIEndpoint,
@@ -86,6 +87,16 @@ old_url_patterns = [
 
 # New url patterns with work-items as the prefix
 new_url_patterns = [
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/description-images/",
+        WorkItemDescriptionImagesEndpoint.as_view(http_method_names=["get"]),
+        name="work-item-description-images",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/work-items/<uuid:issue_id>/description-images/<int:image_index>/",
+        WorkItemDescriptionImagesEndpoint.as_view(http_method_names=["get"]),
+        name="work-item-description-image",
+    ),
     path(
         "workspaces/<str:slug>/work-items/search/",
         IssueSearchEndpoint.as_view(http_method_names=["get"]),
