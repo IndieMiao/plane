@@ -94,9 +94,7 @@ export class IssueStore implements IIssueStore {
 
     if (!issue) throw new Error("Work item not found");
 
-    const issuePayload = this.addIssueToStore(issue);
-
-    this.rootIssueDetailStore.rootIssueStore.issues.addIssue([issuePayload]);
+    this.addIssueToStore(issue);
 
     // store handlers from issue detail
     // parent
@@ -166,6 +164,7 @@ export class IssueStore implements IIssueStore {
       completed_at: issue?.completed_at,
       archived_at: issue?.archived_at,
       created_by: issue?.created_by,
+      created_by_actor: issue?.created_by_actor,
       updated_by: issue?.updated_by,
       is_draft: issue?.is_draft,
       is_subscribed: issue?.is_subscribed,

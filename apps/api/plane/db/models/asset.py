@@ -13,6 +13,7 @@ from django.db import models
 # Module import
 from plane.utils.path_validator import sanitize_filename
 
+from .attribution import VirtualUserAuditMixin
 from .base import BaseModel
 
 
@@ -28,7 +29,7 @@ def file_size(value):
         raise ValidationError("File too large. Size should not exceed 5 MB.")
 
 
-class FileAsset(BaseModel):
+class FileAsset(VirtualUserAuditMixin, BaseModel):
     """
     A file asset.
     """

@@ -184,6 +184,7 @@ class DynamicBaseSerializer(BaseSerializer):
             if "issue_attachments" in self.fields or "issue_attachments" in self.expand:
                 # Import the model here to avoid circular imports
                 from plane.db.models import FileAsset
+                from .issue import IssueAttachmentLiteSerializer
 
                 issue_id = getattr(instance, "id", None)
 
@@ -192,7 +193,7 @@ class DynamicBaseSerializer(BaseSerializer):
                     issue_attachments = FileAsset.objects.filter(
                         issue_id=issue_id,
                         entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
-                    )
+                    ).select_related("workspace")
                     # Serialize issue_attachments and add them to the response
                     response["issue_attachments"] = IssueAttachmentLiteSerializer(issue_attachments, many=True).data
                 else:

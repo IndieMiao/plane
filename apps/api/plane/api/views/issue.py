@@ -10,7 +10,7 @@ import re
 # Django imports
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http import HttpResponseRedirect
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import (
     Case,
     CharField,
@@ -154,10 +154,17 @@ from plane.utils.openapi import (
     WORKSPACE_NOT_FOUND_RESPONSE,
 )
 from plane.bgtasks.work_item_link_task import crawl_work_item_link_title
+from plane.utils.virtual_user_attribution import (
+    resolve_virtual_user,
+    attribute_to_virtual_user,
+    queue_attributed_activity,
+    queue_task_after_commit,
+    validate_virtual_user,
+)
 
 
 def user_has_issue_permission(user_id, project_id, issue=None, allowed_roles=None, allow_creator=True):
-    if allow_creator and issue is not None and user_id == issue.created_by_id:
+    if allow_creator and issue is not None and user_id == (issue.created_by_actor_id or issue.created_by_id):
         return True
 
     qs = ProjectMember.objects.filter(
@@ -420,12 +427,14 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
             409: EXTERNAL_ID_EXISTS_RESPONSE,
         },
     )
+    @transaction.atomic
     def post(self, request, slug, project_id):
         """Create work item
 
         Create a new work item in the specified project with the provided details.
         Supports external ID tracking for integration purposes.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
         project = Project.objects.get(pk=project_id)
 
         serializer = IssueSerializer(
@@ -468,12 +477,16 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
             issue.created_at = request.data.get("created_at", timezone.now())
             issue.created_by_id = request.data.get("created_by", request.user.id)
             issue.save(update_fields=["created_at", "created_by"])
+            attribute_to_virtual_user(issue, virtual_user, request.user, creating=True)
+            serializer = IssueSerializer(issue)
 
             # Track the issue
-            issue_activity.delay(
+            queue_attributed_activity(
+                issue_activity,
+                request,
+                virtual_user,
                 type="issue.activity.created",
                 requested_data=json.dumps(self.request.data, cls=DjangoJSONEncoder),
-                actor_id=str(request.user.id),
                 issue_id=str(serializer.data.get("id", None)),
                 project_id=str(project_id),
                 current_instance=None,
@@ -481,7 +494,8 @@ class IssueListCreateAPIEndpoint(BaseAPIView):
             )
 
             # Send the model activity
-            model_activity.delay(
+            queue_task_after_commit(
+                model_activity,
                 model_name="issue",
                 model_id=str(serializer.data["id"]),
                 requested_data=request.data,
@@ -736,12 +750,16 @@ class IssueDetailAPIEndpoint(BaseAPIView):
             409: EXTERNAL_ID_EXISTS_RESPONSE,
         },
     )
+    @transaction.atomic
     def patch(self, request, slug, project_id, pk):
         """Update work item
 
         Partially update an existing work item with the provided fields.
         Supports external ID validation to prevent conflicts.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
+        if virtual_user is not None and "archived_at" in request.data:
+            return Response({"virtual_user_id": ["Virtual attribution is not enabled for archiving."]}, status=400)
         issue = Issue.objects.get(workspace__slug=slug, project_id=project_id, pk=pk)
         project = Project.objects.get(pk=project_id)
         current_instance = json.dumps(IssueSerializer(issue).data, cls=DjangoJSONEncoder)
@@ -772,17 +790,21 @@ class IssueDetailAPIEndpoint(BaseAPIView):
                 )
 
             serializer.save()
-            issue_activity.delay(
+            attribute_to_virtual_user(issue, virtual_user, request.user)
+            queue_attributed_activity(
+                issue_activity,
+                request,
+                virtual_user,
                 type="issue.activity.updated",
                 requested_data=requested_data,
-                actor_id=str(request.user.id),
                 issue_id=str(pk),
                 project_id=str(project_id),
                 current_instance=current_instance,
                 epoch=int(timezone.now().timestamp()),
             )
             # Send the model activity for webhook dispatch
-            model_activity.delay(
+            queue_task_after_commit(
+                model_activity,
                 model_name="issue",
                 model_id=str(pk),
                 requested_data=request.data,
@@ -814,7 +836,7 @@ class IssueDetailAPIEndpoint(BaseAPIView):
         Only admins or the item creator can perform this action.
         """
         issue = Issue.objects.get(workspace__slug=slug, project_id=project_id, pk=pk)
-        if issue.created_by_id != request.user.id and (
+        if (issue.created_by_actor_id or issue.created_by_id) != request.user.id and (
             not ProjectMember.objects.filter(
                 workspace__slug=slug,
                 member=request.user,
@@ -1153,25 +1175,31 @@ class IssueLinkListCreateAPIEndpoint(BaseAPIView):
             404: ISSUE_NOT_FOUND_RESPONSE,
         },
     )
+    @transaction.atomic
     def post(self, request, slug, project_id, issue_id):
         """Create issue link
 
         Add a new external link to a work item with URL, title, and metadata.
         Automatically tracks link creation activity.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
+        Issue.objects.get(pk=issue_id, project_id=project_id, workspace__slug=slug)
         serializer = IssueLinkCreateSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(project_id=project_id, issue_id=issue_id)
-            crawl_work_item_link_title.delay(serializer.instance.id, serializer.instance.url)
+            queue_task_after_commit(crawl_work_item_link_title, serializer.instance.id, serializer.instance.url)
             link = IssueLink.objects.get(pk=serializer.instance.id)
             link.created_by_id = request.data.get("created_by", request.user.id)
             link.save(update_fields=["created_by"])
-            issue_activity.delay(
+            attribute_to_virtual_user(link, virtual_user, request.user, creating=True)
+            queue_attributed_activity(
+                issue_activity,
+                request,
+                virtual_user,
                 type="link.activity.created",
                 requested_data=json.dumps(serializer.data, cls=DjangoJSONEncoder),
                 issue_id=str(self.kwargs.get("issue_id")),
                 project_id=str(self.kwargs.get("project_id")),
-                actor_id=str(link.created_by_id),
                 current_instance=None,
                 epoch=int(timezone.now().timestamp()),
             )
@@ -1264,23 +1292,28 @@ class IssueLinkDetailAPIEndpoint(BaseAPIView):
             404: LINK_NOT_FOUND_RESPONSE,
         },
     )
+    @transaction.atomic
     def patch(self, request, slug, project_id, issue_id, pk):
         """Update issue link
 
         Modify the URL, title, or metadata of an existing issue link.
         Tracks all changes in issue activity logs.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
         issue_link = IssueLink.objects.get(workspace__slug=slug, project_id=project_id, issue_id=issue_id, pk=pk)
         requested_data = json.dumps(request.data, cls=DjangoJSONEncoder)
         current_instance = json.dumps(IssueLinkSerializer(issue_link).data, cls=DjangoJSONEncoder)
         serializer = IssueLinkSerializer(issue_link, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            crawl_work_item_link_title.delay(serializer.data.get("id"), serializer.data.get("url"))
-            issue_activity.delay(
+            attribute_to_virtual_user(issue_link, virtual_user, request.user)
+            queue_task_after_commit(crawl_work_item_link_title, serializer.data.get("id"), serializer.data.get("url"))
+            queue_attributed_activity(
+                issue_activity,
+                request,
+                virtual_user,
                 type="link.activity.updated",
                 requested_data=requested_data,
-                actor_id=str(request.user.id),
                 issue_id=str(issue_id),
                 project_id=str(project_id),
                 current_instance=current_instance,
@@ -1302,18 +1335,22 @@ class IssueLinkDetailAPIEndpoint(BaseAPIView):
             404: OpenApiResponse(description="Work item link not found"),
         },
     )
+    @transaction.atomic
     def delete(self, request, slug, project_id, issue_id, pk):
         """Delete work item link
 
         Permanently remove an external link from a work item.
         Records deletion activity for audit purposes.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
         issue_link = IssueLink.objects.get(workspace__slug=slug, project_id=project_id, issue_id=issue_id, pk=pk)
         current_instance = json.dumps(IssueLinkSerializer(issue_link).data, cls=DjangoJSONEncoder)
-        issue_activity.delay(
+        queue_attributed_activity(
+            issue_activity,
+            request,
+            virtual_user,
             type="link.activity.deleted",
             requested_data=json.dumps({"link_id": str(pk)}),
-            actor_id=str(request.user.id),
             issue_id=str(issue_id),
             project_id=str(project_id),
             current_instance=current_instance,
@@ -1844,12 +1881,14 @@ class IssueAttachmentListCreateAPIEndpoint(BaseAPIView):
             ),
         },
     )
+    @transaction.atomic
     def post(self, request, slug, project_id, issue_id):
         """Create work item attachment
 
         Generate presigned URL for uploading file attachments to a work item.
         Validates file type and size before creating the attachment record.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
         issue = Issue.objects.get(pk=issue_id, workspace__slug=slug, project_id=project_id)
         # if the user is creator or admin,member then allow the upload
         if not user_has_issue_permission(
@@ -1934,6 +1973,8 @@ class IssueAttachmentListCreateAPIEndpoint(BaseAPIView):
             external_source=external_source,
         )
 
+        attribute_to_virtual_user(asset, virtual_user, request.user, creating=True)
+
         # Get the presigned URL
         storage = S3Storage(request=request)
         # Generate a presigned URL to share an S3 object
@@ -2001,12 +2042,14 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
             404: ATTACHMENT_NOT_FOUND_RESPONSE,
         },
     )
+    @transaction.atomic
     def delete(self, request, slug, project_id, issue_id, pk):
         """Delete work item attachment
 
         Soft delete an attachment from a work item by marking it as deleted.
         Records deletion activity and triggers metadata cleanup.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
         issue = Issue.objects.get(pk=issue_id, workspace__slug=slug, project_id=project_id)
         # if the request user is creator or admin then delete the attachment
         if not user_has_issue_permission(
@@ -2021,15 +2064,23 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        issue_attachment = FileAsset.objects.get(pk=pk, workspace__slug=slug, project_id=project_id)
+        issue_attachment = FileAsset.objects.get(
+            pk=pk,
+            workspace__slug=slug,
+            project_id=project_id,
+            issue_id=issue_id,
+            entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
+        )
         issue_attachment.is_deleted = True
         issue_attachment.deleted_at = timezone.now()
         issue_attachment.save()
 
-        issue_activity.delay(
+        queue_attributed_activity(
+            issue_activity,
+            request,
+            virtual_user,
             type="attachment.activity.deleted",
             requested_data=None,
-            actor_id=str(self.request.user.id),
             issue_id=str(issue_id),
             project_id=str(project_id),
             current_instance=None,
@@ -2040,8 +2091,9 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
 
         # Get the storage metadata
         if not issue_attachment.storage_metadata:
-            get_asset_object_metadata.delay(str(issue_attachment.id))
+            queue_task_after_commit(get_asset_object_metadata, str(issue_attachment.id))
         issue_attachment.save()
+        attribute_to_virtual_user(issue_attachment, virtual_user, request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @issue_attachment_docs(
@@ -2138,12 +2190,14 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
             404: ATTACHMENT_NOT_FOUND_RESPONSE,
         },
     )
+    @transaction.atomic
     def patch(self, request, slug, project_id, issue_id, pk):
         """Confirm attachment upload
 
         Mark an attachment as uploaded after successful file transfer to storage.
         Triggers activity logging and metadata extraction.
         """
+        virtual_user = resolve_virtual_user(request, slug, project_id)
 
         issue = Issue.objects.get(pk=issue_id, workspace__slug=slug, project_id=project_id)
         # if the user is creator or admin then allow the upload
@@ -2159,15 +2213,31 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        issue_attachment = FileAsset.objects.get(pk=pk, workspace__slug=slug, project_id=project_id)
+        issue_attachment = FileAsset.objects.get(
+            pk=pk,
+            workspace__slug=slug,
+            project_id=project_id,
+            issue_id=issue_id,
+            entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
+        )
+        # The completion request must retain the identity selected at initiation.
+        if issue_attachment.created_by_actor_id:
+            if virtual_user is not None and virtual_user.id != issue_attachment.created_by_id:
+                return Response({"virtual_user_id": ["The attachment author cannot be changed."]}, status=400)
+            if virtual_user is None:
+                virtual_user = validate_virtual_user(issue_attachment.created_by_id, request, slug, project_id)
+        elif virtual_user is not None:
+            return Response({"virtual_user_id": ["Set the virtual author when initiating the upload."]}, status=400)
         serializer = IssueAttachmentSerializer(issue_attachment)
 
         # Send this activity only if the attachment is not uploaded before
         if not issue_attachment.is_uploaded:
-            issue_activity.delay(
+            queue_attributed_activity(
+                issue_activity,
+                request,
+                virtual_user,
                 type="attachment.activity.created",
                 requested_data=None,
-                actor_id=str(self.request.user.id),
                 issue_id=str(self.kwargs.get("issue_id", None)),
                 project_id=str(self.kwargs.get("project_id", None)),
                 current_instance=json.dumps(serializer.data, cls=DjangoJSONEncoder),
@@ -2178,12 +2248,14 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
 
             # Update the attachment
             issue_attachment.is_uploaded = True
-            issue_attachment.created_by = request.user
+            if virtual_user is None:
+                issue_attachment.created_by = request.user
 
         # Get the storage metadata
         if not issue_attachment.storage_metadata:
-            get_asset_object_metadata.delay(str(issue_attachment.id))
+            queue_task_after_commit(get_asset_object_metadata, str(issue_attachment.id))
         issue_attachment.save()
+        attribute_to_virtual_user(issue_attachment, virtual_user, request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

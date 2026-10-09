@@ -73,7 +73,7 @@ class IssueCommentViewSet(BaseViewSet):
                 is_active=True,
             ).exists()
             and not project.guest_view_all_features
-            and not issue.created_by == request.user
+            and (issue.created_by_actor_id or issue.created_by_id) != request.user.id
         ):
             return Response(
                 {"error": "You are not allowed to comment on the issue"},

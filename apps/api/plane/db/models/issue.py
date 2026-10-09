@@ -20,6 +20,7 @@ from plane.utils.html_processor import strip_tags
 from plane.utils.path_validator import sanitize_filename
 from plane.db.mixins import SoftDeletionManager
 from plane.utils.exception_logger import log_exception
+from .attribution import VirtualUserAuditMixin
 from .project import ProjectBaseModel
 from plane.utils.uuid import convert_uuid_to_integer
 from .description import Description
@@ -102,7 +103,7 @@ class IssueManager(SoftDeletionManager):
         )
 
 
-class Issue(ProjectBaseModel):
+class Issue(VirtualUserAuditMixin, ProjectBaseModel):
     PRIORITY_CHOICES = (
         ("urgent", "Urgent"),
         ("high", "High"),
@@ -360,7 +361,7 @@ class IssueAssignee(ProjectBaseModel):
         return f"{self.issue.name} {self.assignee.email}"
 
 
-class IssueLink(ProjectBaseModel):
+class IssueLink(VirtualUserAuditMixin, ProjectBaseModel):
     title = models.CharField(max_length=255, null=True, blank=True)
     url = models.TextField()
     issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="issue_link")

@@ -13,6 +13,7 @@ from django.db import models
 # Module imports
 from plane.utils.html_processor import strip_tags
 
+from .attribution import VirtualUserAuditMixin
 from .base import BaseModel
 
 
@@ -20,7 +21,7 @@ def get_view_props():
     return {"full_width": False}
 
 
-class Page(BaseModel):
+class Page(VirtualUserAuditMixin, BaseModel):
     PRIVATE_ACCESS = 1
     PUBLIC_ACCESS = 0
     DEFAULT_SORT_ORDER = 65535

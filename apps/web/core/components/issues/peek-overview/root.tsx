@@ -43,7 +43,7 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
   const {
     peekIssue,
     setPeekIssue,
-    issue: { fetchIssue },
+    issue: { fetchIssue, getIssueById },
     fetchActivities,
   } = useIssueDetail();
   const issueStoreType = useIssueStoreType();
@@ -57,7 +57,7 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
     storeType === EIssuesStoreType.EPIC ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES
   );
   // state
-  const [error, setError] = useState(false);
+  const [operationErrorIssueId, setOperationErrorIssueId] = useState<string>();
 
   const removeRoutePeekId = useCallback(() => {
     setPeekIssue(undefined);
@@ -68,10 +68,10 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
     () => ({
       fetch: async (workspaceSlug: string, projectId: string, issueId: string) => {
         try {
-          setError(false);
+          setOperationErrorIssueId(undefined);
           await fetchIssue(workspaceSlug, projectId, issueId);
         } catch (error) {
-          setError(true);
+          setOperationErrorIssueId(issueId);
           console.error("Error fetching the parent issue", error);
         }
       },
@@ -215,17 +215,28 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
     [fetchIssue, is_draft, issues, fetchActivities, pathname, removeRoutePeekId, restoreIssue]
   );
 
-  const { isLoading } = useSWR(
-    ["peek-issue", peekIssue?.workspaceSlug, peekIssue?.projectId, peekIssue?.issueId],
-    () => peekIssue && issueOperations.fetch(peekIssue.workspaceSlug, peekIssue.projectId, peekIssue.issueId),
+  const { error: fetchError, isValidating } = useSWR(
+    peekIssue?.workspaceSlug && peekIssue.projectId && peekIssue.issueId
+      ? ["peek-issue", peekIssue.workspaceSlug, peekIssue.projectId, peekIssue.issueId]
+      : null,
+    ([, workspaceSlug, projectId, issueId]) => {
+      setOperationErrorIssueId(undefined);
+      return fetchIssue(workspaceSlug, projectId, issueId);
+    },
     {
-      revalidateIfStale: false,
+      revalidateOnMount: true,
       revalidateOnFocus: false,
       revalidateOnReconnect: false,
     }
   );
 
   if (!peekIssue?.workspaceSlug || !peekIssue?.projectId || !peekIssue?.issueId) return <></>;
+
+  // Keep a previously fetched description visible while its details refresh.
+  // A board card alone is not enough to initialize an editable description.
+  const cachedIssue = getIssueById(peekIssue.issueId);
+  const hasIssueDetails =
+    cachedIssue?.project_id === peekIssue.projectId && cachedIssue?.description_html !== undefined;
 
   // Check if issue is editable, based on user role
   const isEditable = allowPermissions(
@@ -240,10 +251,10 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
       workspaceSlug={peekIssue.workspaceSlug}
       projectId={peekIssue.projectId}
       issueId={peekIssue.issueId}
-      isLoading={isLoading}
-      isError={error}
+      isLoading={!hasIssueDetails}
+      isError={!!fetchError || operationErrorIssueId === peekIssue.issueId}
       is_archived={!!peekIssue.isArchived}
-      disabled={!isEditable}
+      disabled={!isEditable || isValidating}
       embedIssue={embedIssue}
       embedRemoveCurrentNotification={embedRemoveCurrentNotification}
       issueOperations={issueOperations}

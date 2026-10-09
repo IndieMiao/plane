@@ -16,6 +16,7 @@ from plane.bgtasks.page_transaction_task import page_transaction
 from plane.db.models import Page, Project, ProjectMember, ProjectPage, UserFavorite, UserRecentVisit
 
 from .base import BaseAPIView
+from plane.utils.virtual_user_attribution import resolve_virtual_user, attribute_to_virtual_user
 
 
 class ProjectPageListCreateAPIEndpoint(BaseAPIView):
@@ -53,7 +54,9 @@ class ProjectPageListCreateAPIEndpoint(BaseAPIView):
             ),
         )
 
+    @transaction.atomic
     def post(self, request, slug, project_id):
+        virtual_user = resolve_virtual_user(request, slug, project_id)
         project = get_object_or_404(Project, pk=project_id, workspace__slug=slug)
         serializer = PageSerializer(data=request.data, context={"project_id": project_id})
         serializer.is_valid(raise_exception=True)
@@ -64,6 +67,7 @@ class ProjectPageListCreateAPIEndpoint(BaseAPIView):
                 owned_by=request.user,
                 created_by=request.user,
             )
+            attribute_to_virtual_user(page, virtual_user, request.user, creating=True)
             ProjectPage.objects.create(
                 workspace=project.workspace,
                 project=project,
@@ -117,11 +121,17 @@ class ProjectPageDetailAPIEndpoint(BaseAPIView):
             status=status.HTTP_200_OK,
         )
 
+    @transaction.atomic
     def patch(self, request, slug, project_id, page_id):
         """Partially update a Page; changing ``name`` renames it."""
+        virtual_user = resolve_virtual_user(request, slug, project_id)
+        if virtual_user is not None and "archived_at" in request.data:
+            return Response({"virtual_user_id": ["Virtual attribution is not enabled for archiving."]}, status=400)
         page = get_object_or_404(self.get_queryset(), pk=page_id)
 
-        is_unlock_request = set(request.data) == {"is_locked"} and request.data.get("is_locked") is False
+        is_unlock_request = (set(request.data) - {"virtual_user_id"}) == {"is_locked"} and request.data.get(
+            "is_locked"
+        ) is False
         if page.is_locked and not is_unlock_request:
             return Response({"error": "Page is locked"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -142,6 +152,7 @@ class ProjectPageDetailAPIEndpoint(BaseAPIView):
         old_description_html = page.description_html
         with transaction.atomic():
             page = serializer.save(updated_by=request.user)
+            attribute_to_virtual_user(page, virtual_user, request.user)
 
             if "description_html" in request.data and page.description_html != old_description_html:
                 transaction.on_commit(

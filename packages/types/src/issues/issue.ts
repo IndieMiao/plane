@@ -72,6 +72,7 @@ export type TBaseIssue = {
   archived_at: string | null;
 
   created_by: string;
+  created_by_actor?: string | null;
   updated_by: string;
 
   is_draft: boolean;

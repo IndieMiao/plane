@@ -121,6 +121,7 @@ def issue_on_results(
         "created_at",
         "updated_at",
         "created_by",
+        "created_by_actor",
         "updated_by",
         "attachment_count",
         "link_count",

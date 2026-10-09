@@ -53,7 +53,9 @@ export const DeleteIssueModal = observer(function DeleteIssueModal(props: Props)
   // derived values
   const issue = data ? data : issueMap[dataId!];
   const projectDetails = getProjectById(issue?.project_id);
-  const isIssueCreator = issue?.created_by === currentUser?.id;
+  const creatorId =
+    issue && "created_by_actor" in issue ? (issue.created_by_actor ?? issue.created_by) : issue?.created_by;
+  const isIssueCreator = creatorId === currentUser?.id;
 
   const canPerformProjectAdminActions = allowPermissions(
     [EUserPermissions.ADMIN],
