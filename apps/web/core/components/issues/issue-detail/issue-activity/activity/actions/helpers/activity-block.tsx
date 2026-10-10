@@ -22,10 +22,11 @@ type TIssueActivityBlockComponent = {
   ends: "top" | "bottom" | undefined;
   children: ReactNode;
   customUserName?: string;
+  trailingContent?: ReactNode;
 };
 
 export function IssueActivityBlockComponent(props: TIssueActivityBlockComponent) {
-  const { icon, activityId, ends, children, customUserName } = props;
+  const { icon, activityId, ends, children, customUserName, trailingContent } = props;
   // hooks
   const {
     activity: { getActivityById },
@@ -44,21 +45,24 @@ export function IssueActivityBlockComponent(props: TIssueActivityBlockComponent)
       <div className="z-[4] flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-subtle bg-layer-2 text-secondary shadow-raised-100">
         {icon ? icon : <Network className="h-3.5 w-3.5" />}
       </div>
-      <div className="w-full truncate text-secondary">
-        {!activity?.field && activity?.verb === "created" ? (
-          <IssueCreatorDisplay activityId={activityId} customUserName={customUserName} />
-        ) : (
-          <IssueUser activityId={activityId} customUserName={customUserName} />
-        )}
-        <span> {children} </span>
-        <span>
-          <Tooltip
-            isMobile={isMobile}
-            tooltipContent={`${renderFormattedDate(activity.created_at)}, ${renderFormattedTime(activity.created_at)}`}
-          >
-            <span className="whitespace-nowrap text-tertiary"> {calculateTimeAgo(activity.created_at)}</span>
-          </Tooltip>
-        </span>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="min-w-0 truncate text-secondary">
+          {!activity?.field && activity?.verb === "created" ? (
+            <IssueCreatorDisplay activityId={activityId} customUserName={customUserName} />
+          ) : (
+            <IssueUser activityId={activityId} customUserName={customUserName} />
+          )}
+          <span> {children} </span>
+          <span>
+            <Tooltip
+              isMobile={isMobile}
+              tooltipContent={`${renderFormattedDate(activity.created_at)}, ${renderFormattedTime(activity.created_at)}`}
+            >
+              <span className="whitespace-nowrap text-tertiary"> {calculateTimeAgo(activity.created_at)}</span>
+            </Tooltip>
+          </span>
+        </div>
+        {trailingContent && <div className="flex shrink-0 items-center">{trailingContent}</div>}
       </div>
     </div>
   );
