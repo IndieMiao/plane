@@ -15,6 +15,8 @@ import type { TIssueServiceType } from "@plane/types";
 import { ImagePreview } from "@plane/ui";
 import { cn, getFileURL } from "@plane/utils";
 import { isAttachmentImage } from "./attachment-image";
+import { isAttachmentMarkdown } from "./attachment-markdown";
+import { AttachmentMarkdownPreview } from "./attachment-markdown-preview";
 import { EIssueServiceType } from "@plane/types";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -72,6 +74,7 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
   const attachments = issueAttachments.map(getAttachmentById).filter((item) => item !== undefined);
   const images = attachments.filter(isAttachmentImage);
   const files = attachments.filter((item) => !isAttachmentImage(item));
+  const markdownPreview = files.find((item) => item.id === previewId && isAttachmentMarkdown(item));
   const previewImages = images.map((item) => ({
     id: item.id,
     src: getFileURL(item.asset_url) ?? "",
@@ -121,6 +124,13 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
 
   return (
     <div className="@container space-y-3 py-3">
+      {markdownPreview && (
+        <AttachmentMarkdownPreview
+          key={markdownPreview.id}
+          attachment={markdownPreview}
+          onClose={() => setPreviewId(null)}
+        />
+      )}
       {previewId && previewImages.some((image) => image.id === previewId) && (
         <ImagePreview
           key={previewId}

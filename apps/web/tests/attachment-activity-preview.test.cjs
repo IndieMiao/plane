@@ -20,6 +20,7 @@ function loadSource(path, imports) {
   return exports;
 }
 const imageHelpers = loadSource("core/components/issues/attachment/attachment-image.ts", {});
+const markdownHelpers = loadSource("core/components/issues/attachment/attachment-markdown.ts", {});
 const attachment = {
   id: "image-1",
   attributes: { name: "screen.png", type: "image/png", size: 1024 },
@@ -61,6 +62,8 @@ function renderActivity({ item = attachment, record = activity } = {}) {
     "@plane/utils": { getFileURL: (value) => value, getFileExtension: (name) => name.split(".").at(-1) },
     "@/components/icons": { getFileIcon: (extension, size) => ({ type: "FileIcon", props: { extension, size } }) },
     "@/components/issues/attachment/attachment-image": imageHelpers,
+    "@/components/issues/attachment/attachment-markdown": markdownHelpers,
+    "@/components/issues/attachment/attachment-markdown-preview": { AttachmentMarkdownPreview: "MarkdownPreview" },
     "@/hooks/store/use-issue-detail": {
       useIssueDetail: () => ({
         activity: { getActivityById: () => record },
@@ -129,6 +132,18 @@ test("generic MIME images are recognized by their filenames", () => {
     item: { ...attachment, attributes: { name: "SCREEN.PNG", type: "application/octet-stream" } },
   }).render();
   assert.equal(elements.filter((node) => node.type === "img").length, 1);
+});
+
+test("Markdown activity icons open document preview", () => {
+  const item = { ...attachment, attributes: { name: "review.md", type: "text/plain" } };
+  const ui = renderActivity({ item });
+  ui.render()
+    .find((node) => node.type === "button")
+    .props.onClick();
+  const viewer = ui.render().find((node) => node.type === "MarkdownPreview");
+  assert.equal(viewer.props.attachment, item);
+  viewer.props.onClose();
+  assert.equal(ui.render().filter((node) => node.type === "MarkdownPreview").length, 0);
 });
 
 test("failed thumbnails keep manual original preview available without automatic fallback", () => {

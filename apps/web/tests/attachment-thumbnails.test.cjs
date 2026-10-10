@@ -14,6 +14,18 @@ const dateCompiled = ts.transpileModule(dateSource, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 });
 new Function("require", "exports", dateCompiled.outputText)(require, dateUtils);
+const markdownUtils = {};
+const markdownSource = readFileSync(
+  resolve(__dirname, "../core/components/issues/attachment/attachment-markdown.ts"),
+  "utf8"
+);
+new Function(
+  "require",
+  "exports",
+  ts.transpileModule(markdownSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText
+)(require, markdownUtils);
 
 const attachment = {
   id: "image",
@@ -55,6 +67,7 @@ function renderItem(item = attachment, failed = false) {
     },
     "@/hooks/store/use-member": { useMember: () => ({ getUserDetails: () => ({ display_name: "Uploader" }) }) },
     "./attachment-image": { isAttachmentImage: (candidate) => candidate.attributes.type.startsWith("image/") },
+    "./attachment-markdown": markdownUtils,
   };
   const source = readFileSync(
     resolve(__dirname, "../core/components/issues/attachment/attachment-list-item.tsx"),
@@ -127,4 +140,16 @@ test("file rows also display upload time without requesting thumbnails", () => {
   const { elements } = renderItem({ ...attachment, attributes: { ...attachment.attributes, type: "application/pdf" } });
   assert.equal(elements.filter((node) => node.type === "img").length, 0);
   assert.equal(elements.filter((node) => node.type === "time").length, 1);
+});
+
+test("Markdown filenames open preview while the separate download link retains the original", () => {
+  const file = { ...attachment, attributes: { ...attachment.attributes, name: "review.MD", type: "text/plain" } };
+  const { elements, onPreview } = renderItem(file);
+  const button = elements.find((node) => node.type === "button");
+  assert.ok(button);
+  button.props.onClick();
+  assert.deepEqual(onPreview.mock.calls[0].arguments, [file.id]);
+  const downloads = elements.filter((node) => node.type === "a");
+  assert.equal(downloads.length, 1);
+  assert.equal(downloads[0].props.href, file.asset_url);
 });

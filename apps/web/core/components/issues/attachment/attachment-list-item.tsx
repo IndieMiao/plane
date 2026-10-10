@@ -18,6 +18,7 @@ import { getFileIcon } from "@/components/icons";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useMember } from "@/hooks/store/use-member";
 import { isAttachmentImage } from "./attachment-image";
+import { isAttachmentMarkdown } from "./attachment-markdown";
 
 type Props = {
   attachmentId: string;
@@ -45,6 +46,7 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
   const url = getFileURL(attachment.asset_url);
   const thumbnailUrl = attachment.thumbnail_url ? getFileURL(attachment.thumbnail_url) : undefined;
   const isImage = isAttachmentImage(attachment);
+  const isMarkdown = !isImage && isAttachmentMarkdown(attachment);
   const uploader = getUserDetails(attachment.created_by)?.display_name;
   const uploadedAt = renderFormattedDate(new Date(attachment.created_at), "yyyy-MM-dd HH:mm");
   const uploadTime = uploadedAt ? (
@@ -56,6 +58,15 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
       {t("attachment.uploaded_at", { date: uploadedAt })}
     </time>
   ) : null;
+  const fileDetails = (
+    <>
+      <span className="block truncate text-13 font-medium text-primary" title={name}>
+        {name}
+      </span>
+      <span className="text-12 text-tertiary">{convertBytesToSize(attachment.attributes.size)}</span>
+      {uploadTime}
+    </>
+  );
   const actions = (
     <div className="flex shrink-0 items-center gap-1">
       <a
@@ -135,19 +146,27 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
       ) : (
         <>
           <span className="shrink-0">{getFileIcon(getFileExtension(name), 24)}</span>
-          <a
-            href={url}
-            download={name}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="focus-visible:outline-accent-primary min-w-0 flex-1 rounded focus-visible:outline-2"
-          >
-            <span className="block truncate text-13 font-medium text-primary" title={name}>
-              {name}
-            </span>
-            <span className="text-12 text-tertiary">{convertBytesToSize(attachment.attributes.size)}</span>
-            {uploadTime}
-          </a>
+          {isMarkdown ? (
+            <button
+              type="button"
+              disabled={!url}
+              onClick={() => onPreview(attachmentId)}
+              aria-label={t("attachment.preview_named", { name })}
+              className="focus-visible:outline-accent-primary min-w-0 flex-1 cursor-pointer rounded text-left focus-visible:outline-2"
+            >
+              {fileDetails}
+            </button>
+          ) : (
+            <a
+              href={url}
+              download={name}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="focus-visible:outline-accent-primary min-w-0 flex-1 rounded focus-visible:outline-2"
+            >
+              {fileDetails}
+            </a>
+          )}
           {attachment.created_by && (
             <span title={uploader}>
               <ButtonAvatars showTooltip userIds={attachment.created_by} />

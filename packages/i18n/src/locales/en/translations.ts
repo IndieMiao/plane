@@ -992,6 +992,12 @@ export default {
   attachment: {
     upload: "Upload attachments",
     uploaded_at: "Uploaded {date}",
+    markdown_preview: "Document preview",
+    markdown_error: "This document could not be loaded. Try again or download the file.",
+    markdown_too_large: "This document is too large to preview. Download the file to read it.",
+    markdown_invalid: "This file could not be read as Markdown. Download the file to read it.",
+    markdown_empty: "This document is empty.",
+    retry_preview: "Retry",
     all: "All",
     images: "Images",
     files: "Files",

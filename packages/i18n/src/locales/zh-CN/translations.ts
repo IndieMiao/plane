@@ -1140,6 +1140,12 @@ export default {
   attachment: {
     upload: "上传附件",
     uploaded_at: "上传于 {date}",
+    markdown_preview: "文档预览",
+    markdown_error: "文档加载失败，请重试或下载查看。",
+    markdown_too_large: "文档过大，暂不支持在线预览，请下载查看。",
+    markdown_invalid: "无法将此文件读取为 Markdown，请下载查看。",
+    markdown_empty: "此文档暂无内容。",
+    retry_preview: "重试",
     all: "全部",
     images: "图片",
     files: "文件",
