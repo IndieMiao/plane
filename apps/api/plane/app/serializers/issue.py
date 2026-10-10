@@ -614,6 +614,7 @@ class IssueLinkLiteSerializer(BaseSerializer):
 
 class IssueAttachmentSerializer(BaseSerializer):
     asset_url = serializers.CharField(read_only=True)
+    thumbnail_url = serializers.CharField(read_only=True, allow_null=True)
 
     class Meta:
         model = FileAsset
@@ -638,9 +639,11 @@ class IssueAttachmentLiteSerializer(DynamicBaseSerializer):
             "attributes",
             # "issue_id",
             "created_by",
+            "created_at",
             "updated_at",
             "updated_by",
             "asset_url",
+            "thumbnail_url",
         ]
         read_only_fields = fields
 

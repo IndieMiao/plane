@@ -991,6 +991,7 @@ export default {
   },
   attachment: {
     upload: "Upload attachments",
+    uploaded_at: "Uploaded {date}",
     all: "All",
     images: "Images",
     files: "Files",

@@ -12,7 +12,7 @@ import { TrashIcon } from "@plane/propel/icons";
 import type { TIssueServiceType } from "@plane/types";
 import { EIssueServiceType } from "@plane/types";
 import { CustomMenu } from "@plane/ui";
-import { cn, convertBytesToSize, getFileExtension, getFileURL } from "@plane/utils";
+import { cn, convertBytesToSize, getFileExtension, getFileURL, renderFormattedDate } from "@plane/utils";
 import { ButtonAvatars } from "@/components/dropdowns/member/avatar";
 import { getFileIcon } from "@/components/icons";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -43,8 +43,19 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
   if (!attachment) return null;
   const name = attachment.attributes.name;
   const url = getFileURL(attachment.asset_url);
+  const thumbnailUrl = attachment.thumbnail_url ? getFileURL(attachment.thumbnail_url) : undefined;
   const isImage = isAttachmentImage(attachment);
   const uploader = getUserDetails(attachment.created_by)?.display_name;
+  const uploadedAt = renderFormattedDate(new Date(attachment.created_at), "yyyy-MM-dd HH:mm");
+  const uploadTime = uploadedAt ? (
+    <time
+      dateTime={attachment.created_at}
+      title={t("attachment.uploaded_at", { date: uploadedAt })}
+      className="block text-11 text-tertiary tabular-nums"
+    >
+      {t("attachment.uploaded_at", { date: uploadedAt })}
+    </time>
+  ) : null;
   const actions = (
     <div className="flex shrink-0 items-center gap-1">
       <a
@@ -89,11 +100,11 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
             className="focus-visible:outline-accent-primary block w-full cursor-zoom-in text-left focus-visible:outline-2"
           >
             <span className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden border-b border-subtle bg-layer-1">
-              {failed ? (
+              {failed || !thumbnailUrl ? (
                 <ImageOff className="size-8 text-tertiary" />
               ) : (
                 <img
-                  src={url}
+                  src={thumbnailUrl}
                   alt=""
                   loading="lazy"
                   decoding="async"
@@ -108,6 +119,7 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
               </span>
             </span>
           </button>
+          <div className="px-3 pt-1">{uploadTime}</div>
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <span className="text-12 text-tertiary">{convertBytesToSize(attachment.attributes.size)}</span>
             <div className="flex items-center gap-1">
@@ -134,6 +146,7 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
               {name}
             </span>
             <span className="text-12 text-tertiary">{convertBytesToSize(attachment.attributes.size)}</span>
+            {uploadTime}
           </a>
           {attachment.created_by && (
             <span title={uploader}>

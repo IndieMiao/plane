@@ -5,12 +5,15 @@
 # Python imports
 import json
 import uuid
+from hashlib import sha256
 
 # Django imports
 from django.utils import timezone
 from django.core.serializers.json import DjangoJSONEncoder
 from django.conf import settings
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseNotModified, HttpResponseRedirect
+from django.utils.http import parse_etags
+from django.utils.cache import patch_vary_headers
 
 # Third Party imports
 from rest_framework.response import Response
@@ -27,6 +30,8 @@ from plane.settings.storage import S3Storage
 from plane.utils.path_validator import normalize_attachment_mime_type, sanitize_filename
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from plane.utils.host import base_host
+from plane.utils.attachment_thumbnail import ThumbnailUnavailable, get_attachment_thumbnail
+from plane.utils.exception_logger import log_exception
 
 
 class IssueAttachmentEndpoint(BaseAPIView):
@@ -172,7 +177,14 @@ class IssueAttachmentV2Endpoint(BaseAPIView):
     def get(self, request, slug, project_id, issue_id, pk=None):
         if pk:
             # Get the asset
-            asset = FileAsset.objects.get(id=pk, workspace__slug=slug, project_id=project_id)
+            asset = FileAsset.objects.get(
+                id=pk,
+                workspace__slug=slug,
+                project_id=project_id,
+                issue_id=issue_id,
+                entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
+                is_deleted=False,
+            )
 
             # Check if the asset is uploaded
             if not asset.is_uploaded:
@@ -180,6 +192,35 @@ class IssueAttachmentV2Endpoint(BaseAPIView):
                     {"error": "The asset is not uploaded.", "status": False},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+            if request.query_params.get("thumbnail") == "1":
+                try:
+                    thumbnail = get_attachment_thumbnail(asset)
+                except ThumbnailUnavailable:
+                    return Response(
+                        {"error": "Thumbnail unavailable. Open or download the original image."},
+                        status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                        headers={"Cache-Control": "private, no-store"},
+                    )
+                except Exception as exc:
+                    log_exception(exc)
+                    return Response(
+                        {"error": "Thumbnail temporarily unavailable."},
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        headers={"Cache-Control": "private, no-store"},
+                    )
+                etag = f'"{sha256(thumbnail).hexdigest()}"'
+                etags = parse_etags(request.headers.get("If-None-Match", ""))
+                response = (
+                    HttpResponseNotModified()
+                    if etag in etags or "*" in etags
+                    else HttpResponse(thumbnail, content_type="image/webp")
+                )
+                response["ETag"] = etag
+                response["Cache-Control"] = "private, max-age=300"
+                response["X-Content-Type-Options"] = "nosniff"
+                patch_vary_headers(response, ["Cookie"])
+                return response
 
             storage = S3Storage(request=request)
             presigned_url = storage.generate_presigned_url(

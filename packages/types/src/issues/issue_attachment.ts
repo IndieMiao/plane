@@ -14,8 +14,10 @@ export type TIssueAttachment = {
     type?: string;
   };
   asset_url: string;
+  thumbnail_url?: string | null;
   issue_id: string;
   // required
+  created_at: string;
   updated_at: string;
   updated_by: string;
   created_by: string;

@@ -1139,6 +1139,7 @@ export default {
   },
   attachment: {
     upload: "上传附件",
+    uploaded_at: "上传于 {date}",
     all: "全部",
     images: "图片",
     files: "文件",

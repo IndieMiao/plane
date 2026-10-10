@@ -81,6 +81,12 @@ class FileAsset(VirtualUserAuditMixin, BaseModel):
         return str(self.asset)
 
     @property
+    def thumbnail_url(self):
+        if self.entity_type == self.EntityTypeContext.ISSUE_ATTACHMENT:
+            return f"{self.asset_url}?thumbnail=1"
+        return None
+
+    @property
     def asset_url(self):
         if (
             self.entity_type == self.EntityTypeContext.WORKSPACE_LOGO

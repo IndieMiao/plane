@@ -15,6 +15,7 @@ COPY plane/api/urls/page.py /code/plane/api/urls/page.py
 COPY plane/settings/common.py /code/plane/settings/common.py
 COPY plane/celery.py /code/plane/celery.py
 COPY plane/utils/path_validator.py /code/plane/utils/path_validator.py
+COPY plane/utils/attachment_thumbnail.py /code/plane/utils/attachment_thumbnail.py
 COPY plane/app/views/issue/attachment.py /code/plane/app/views/issue/attachment.py
 COPY plane/api/views/asset.py /code/plane/api/views/asset.py
 COPY plane/api/views/issue.py /code/plane/api/views/issue.py
