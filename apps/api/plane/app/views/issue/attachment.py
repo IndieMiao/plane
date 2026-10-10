@@ -210,7 +210,8 @@ class IssueAttachmentV2Endpoint(BaseAPIView):
                         headers={"Cache-Control": "private, no-store"},
                     )
                 etag = f'"{sha256(thumbnail).hexdigest()}"'
-                etags = parse_etags(request.headers.get("If-None-Match", ""))
+                # If-None-Match uses weak comparison, including ETags rewritten by GZipMiddleware.
+                etags = {value.removeprefix("W/") for value in parse_etags(request.headers.get("If-None-Match", ""))}
                 response = (
                     HttpResponseNotModified()
                     if etag in etags or "*" in etags

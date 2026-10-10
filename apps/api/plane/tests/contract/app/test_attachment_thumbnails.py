@@ -74,6 +74,21 @@ def test_source_version_changes_invalidate_cache(session_client, asset, local_se
     assert local_services.return_value.s3_client.get_object.call_count == 2
 
 
+@pytest.mark.parametrize("accept_encoding", ["", "gzip"])
+def test_weak_etag_revalidation_avoids_resending_image(session_client, asset, local_services, accept_encoding):
+    response = session_client.get(asset.thumbnail_url, HTTP_ACCEPT_ENCODING=accept_encoding)
+    assert response.status_code == 200
+    etag = response["ETag"]
+    if not etag.startswith("W/"):
+        etag = "W/" + etag
+    revalidated = session_client.get(
+        asset.thumbnail_url, HTTP_ACCEPT_ENCODING=accept_encoding, HTTP_IF_NONE_MATCH=f'"other-version", {etag}'
+    )
+    assert revalidated.status_code == 304
+    assert not revalidated.content
+    assert local_services.return_value.s3_client.get_object.call_count == 1
+
+
 @pytest.mark.parametrize("serializer_class", [IssueAttachmentLiteSerializer, IssueAttachmentSerializer])
 def test_serializers_expose_upload_time_and_thumbnail_without_reading_storage(asset, local_services, serializer_class):
     data = serializer_class(asset).data
