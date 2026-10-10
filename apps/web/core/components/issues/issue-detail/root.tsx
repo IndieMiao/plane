@@ -67,7 +67,7 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
   const router = useAppRouter();
   // hooks
   const {
-    issue: { getIssueById },
+    issue: { getIssueById, getIsRefreshingIssue },
     fetchIssue,
     updateIssue,
     removeIssue,
@@ -241,7 +241,11 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
           }}
         />
       ) : (
-        <div ref={sectionScopeRef} className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+        <div
+          ref={sectionScopeRef}
+          data-work-item-detail-id={issueId}
+          className="flex h-full min-h-0 w-full flex-col overflow-hidden"
+        >
           <WorkItemSectionNavigation
             issueId={issueId}
             scopeRef={sectionScopeRef}
@@ -250,7 +254,10 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
               if (window.innerWidth >= 768) toggleIssueDetailSidebar(false);
             }}
           />
-          <div className="flex min-h-0 w-full flex-1 overflow-hidden">
+          <div
+            className="flex min-h-0 w-full flex-1 overflow-hidden"
+            {...(getIsRefreshingIssue(issueId) ? { inert: "" } : {})}
+          >
             <div
               className="vertical-scrollbar scrollbar-md h-full w-full min-w-0 space-y-6 px-4 py-5 [scrollbar-gutter:stable] sm:px-9"
               data-work-item-scroll

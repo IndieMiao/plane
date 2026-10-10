@@ -42,6 +42,7 @@ export interface IIssueAttachmentStoreActions {
 }
 
 export interface IIssueAttachmentStore extends IIssueAttachmentStoreActions {
+  replaceAttachments: (issueId: string, attachments: TIssueAttachment[]) => void;
   // observables
   attachments: TIssueAttachmentIdMap;
   attachmentMap: TIssueAttachmentMap;
@@ -131,6 +132,17 @@ export class IssueAttachmentStore implements IIssueAttachmentStore {
     const response = await this.issueAttachmentService.getIssueAttachments(workspaceSlug, projectId, issueId);
     this.addAttachments(issueId, response);
     return response;
+  };
+
+  replaceAttachments = (issueId: string, attachments: TIssueAttachment[]) => {
+    const ids = attachments.map((attachment) => attachment.id);
+    runInAction(() => {
+      for (const id of this.attachments[issueId] ?? []) {
+        if (!ids.includes(id)) delete this.attachmentMap[id];
+      }
+      this.attachments[issueId] = ids;
+      attachments.forEach((attachment) => set(this.attachmentMap, attachment.id, attachment));
+    });
   };
 
   private debouncedUpdateProgress = debounce((issueId: string, tempId: string, progress: number) => {

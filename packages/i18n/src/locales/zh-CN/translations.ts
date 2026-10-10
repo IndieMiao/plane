@@ -1136,6 +1136,10 @@ export default {
       deselect_all: "取消全选",
     },
     open_in_full_screen: "在全屏中打开工作项",
+    refresh_details: "刷新详情",
+    refreshing_details: "正在刷新详情",
+    refresh_wait_for_save: "请等待修改保存完成",
+    refresh_failed: "部分详情刷新失败，请重试。",
   },
   attachment: {
     upload: "上传附件",

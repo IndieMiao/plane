@@ -337,8 +337,8 @@ export abstract class IssueDetail implements IIssueDetail {
     this.link.removeLink(workspaceSlug, projectId, issueId, linkId);
 
   // sub issues
-  fetchSubIssues = async (workspaceSlug: string, projectId: string, issueId: string) =>
-    this.subIssues.fetchSubIssues(workspaceSlug, projectId, issueId);
+  fetchSubIssues = async (workspaceSlug: string, projectId: string, issueId: string, background?: boolean) =>
+    this.subIssues.fetchSubIssues(workspaceSlug, projectId, issueId, background);
   createSubIssues = async (workspaceSlug: string, projectId: string, parentIssueId: string, data: string[]) =>
     this.subIssues.createSubIssues(workspaceSlug, projectId, parentIssueId, data);
   updateSubIssue = async (
@@ -385,12 +385,22 @@ export abstract class IssueDetail implements IIssueDetail {
   ) => this.relation.removeRelation(workspaceSlug, projectId, issueId, relationType, relatedIssue, updateLocally);
 
   // activity
-  fetchActivities = async (workspaceSlug: string, projectId: string, issueId: string, loaderType?: TActivityLoader) =>
-    this.activity.fetchActivities(workspaceSlug, projectId, issueId, loaderType);
+  fetchActivities = async (
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    loaderType?: TActivityLoader,
+    replace?: boolean
+  ) => this.activity.fetchActivities(workspaceSlug, projectId, issueId, loaderType, replace);
 
   // comment
-  fetchComments = async (workspaceSlug: string, projectId: string, issueId: string, loaderType?: TCommentLoader) =>
-    this.comment.fetchComments(workspaceSlug, projectId, issueId, loaderType);
+  fetchComments = async (
+    workspaceSlug: string,
+    projectId: string,
+    issueId: string,
+    loaderType?: TCommentLoader,
+    replace?: boolean
+  ) => this.comment.fetchComments(workspaceSlug, projectId, issueId, loaderType, replace);
   createComment = async (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssueComment>) =>
     this.comment.createComment(workspaceSlug, projectId, issueId, data);
   updateComment = async (

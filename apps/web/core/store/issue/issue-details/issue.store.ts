@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { makeObservable, observable } from "mobx";
+import { makeObservable, observable, runInAction } from "mobx";
 import { computedFn } from "mobx-utils";
 // types
 import type { TIssue, TIssueServiceType } from "@plane/types";
@@ -35,6 +35,11 @@ export interface IIssueStoreActions {
 }
 
 export interface IIssueStore extends IIssueStoreActions {
+  refreshIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<void>;
+  getIsRefreshingIssue: (issueId: string) => boolean;
+  getDetailRefreshVersion: (issueId: string) => number;
+  getIsSavingIssueDetails: (issueId: string) => boolean;
+  setIsSavingIssueDetails: (issueId: string, field: "title" | "description", saving: boolean) => void;
   getIsFetchingIssueDetails: (issueId: string | undefined) => boolean;
   // helper methods
   getIssueById: (issueId: string) => TIssue | undefined;
@@ -43,6 +48,9 @@ export interface IIssueStore extends IIssueStoreActions {
 
 export class IssueStore implements IIssueStore {
   fetchingIssueDetails: string | undefined = undefined;
+  refreshingIssues: Record<string, boolean> = {};
+  detailRefreshVersions: Record<string, number> = {};
+  pendingDetailEdits: Record<string, boolean> = {};
   // root store
   rootIssueDetailStore: IIssueDetail;
   // services
@@ -55,6 +63,9 @@ export class IssueStore implements IIssueStore {
   constructor(rootStore: IIssueDetail, serviceType: TIssueServiceType) {
     makeObservable(this, {
       fetchingIssueDetails: observable.ref,
+      refreshingIssues: observable,
+      detailRefreshVersions: observable,
+      pendingDetailEdits: observable,
     });
     // root store
     this.rootIssueDetailStore = rootStore;
@@ -84,6 +95,64 @@ export class IssueStore implements IIssueStore {
   });
 
   // actions
+  getIsRefreshingIssue = (issueId: string) => !!this.refreshingIssues[issueId];
+  getDetailRefreshVersion = (issueId: string) => this.detailRefreshVersions[issueId] ?? 0;
+  getIsSavingIssueDetails = (issueId: string) =>
+    !!(this.pendingDetailEdits[`${issueId}:title`] || this.pendingDetailEdits[`${issueId}:description`]);
+
+  setIsSavingIssueDetails = (issueId: string, field: "title" | "description", saving: boolean) => {
+    runInAction(() => {
+      this.pendingDetailEdits[`${issueId}:${field}`] = saving;
+    });
+  };
+
+  refreshIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
+    if (this.getIsRefreshingIssue(issueId)) return;
+    if (this.getIsSavingIssueDetails(issueId)) throw new Error("Wait for pending edits to finish saving");
+    runInAction(() => {
+      this.refreshingIssues[issueId] = true;
+    });
+    try {
+      const query = {
+        expand: "issue_reactions,issue_attachments,issue_link,parent",
+      };
+      const issue = this.getIssueById(issueId)?.archived_at
+        ? await this.issueArchiveService.retrieveArchivedIssue(workspaceSlug, projectId, issueId, query)
+        : await this.issueService.retrieve(workspaceSlug, projectId, issueId, query);
+      if (!issue || issue.id !== issueId || issue.project_id !== projectId) throw new Error("Work item not found");
+      const detail = this.rootIssueDetailStore;
+      runInAction(() => {
+        this.addIssueToStore(issue);
+        if (issue.issue_reactions) detail.addReactions(issueId, issue.issue_reactions);
+        if (issue.issue_link) detail.addLinks(issueId, issue.issue_link);
+        if (issue.issue_attachments) detail.attachment.replaceAttachments(issueId, issue.issue_attachments);
+        detail.addSubscription(issueId, issue.is_subscribed);
+        this.detailRefreshVersions[issueId] = this.getDetailRefreshVersion(issueId) + 1;
+      });
+      const requests: Promise<unknown>[] = [
+        detail.activity.fetchActivities(workspaceSlug, projectId, issueId, "mutate", true),
+        detail.comment.fetchComments(workspaceSlug, projectId, issueId, "mutate", true),
+        detail.subIssues.fetchSubIssues(workspaceSlug, projectId, issueId, true),
+        detail.relation.fetchRelations(workspaceSlug, projectId, issueId),
+      ];
+      if (issue.parent?.id && issue.parent.project_id) {
+        requests.push(
+          this.issueService.retrieve(workspaceSlug, issue.parent.project_id, issue.parent.id).then((parent) => {
+            detail.rootIssueStore.issues.addIssue([parent]);
+            return parent;
+          })
+        );
+      }
+      const results = await Promise.allSettled(requests);
+      if (results.some((result) => result.status === "rejected"))
+        throw new Error("Some work item details could not be refreshed");
+    } finally {
+      runInAction(() => {
+        this.refreshingIssues[issueId] = false;
+      });
+    }
+  };
+
   fetchIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
     const query = {
       expand: "issue_reactions,issue_attachments,issue_link,parent",
@@ -101,6 +170,7 @@ export class IssueStore implements IIssueStore {
     if (issue && issue?.parent && issue?.parent?.id && issue?.parent?.project_id) {
       this.issueService.retrieve(workspaceSlug, issue.parent.project_id, issue?.parent?.id).then((res) => {
         this.rootIssueDetailStore.rootIssueStore.issues.addIssue([res]);
+        return res;
       });
     }
     // assignees
@@ -287,6 +357,7 @@ export class IssueStore implements IIssueStore {
     if (issue?.parent && issue?.parent?.id && issue?.parent?.project_id) {
       this.issueService.retrieve(workspaceSlug, issue.parent.project_id, issue.parent.id).then((res) => {
         this.rootIssueDetailStore.rootIssueStore.issues.addIssue([res]);
+        return res;
       });
     }
 

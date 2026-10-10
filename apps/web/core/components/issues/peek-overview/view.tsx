@@ -69,7 +69,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   const {
     setPeekIssue,
     isAnyModalOpen,
-    issue: { getIssueById },
+    issue: { getIssueById, getIsRefreshingIssue },
   } = useIssueDetail();
   const { isAnyModalOpen: isAnyEpicModalOpen } = useIssueDetail(EIssueServiceType.EPICS);
   const issue = getIssueById(issueId);
@@ -145,6 +145,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
         {issueId && (
           <div
             ref={issuePeekOverviewRef}
+            data-work-item-detail-id={issueId}
             className={peekOverviewIssueClassName}
             style={{
               boxShadow:
@@ -187,6 +188,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                 <div
                   className="vertical-scrollbar relative scrollbar-md min-h-0 w-full flex-1 overflow-y-auto [scrollbar-gutter:stable]"
                   data-work-item-scroll
+                  {...(getIsRefreshingIssue(issueId) ? { inert: "" } : {})}
                 >
                   <div className="relative mx-auto flex max-w-6xl flex-col gap-6 px-4 py-5 sm:px-8">
                     <PeekOverviewIssueDetails

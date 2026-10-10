@@ -988,6 +988,10 @@ export default {
       deselect_all: "Deselect all",
     },
     open_in_full_screen: "Open work item in full screen",
+    refresh_details: "Refresh details",
+    refreshing_details: "Refreshing details",
+    refresh_wait_for_save: "Wait for changes to finish saving",
+    refresh_failed: "Some details could not be refreshed. Please try again.",
   },
   attachment: {
     upload: "Upload attachments",

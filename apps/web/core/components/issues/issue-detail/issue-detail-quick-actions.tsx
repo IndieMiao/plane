@@ -24,6 +24,7 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 // local imports
 import { WorkItemDetailQuickActions } from "../issue-layouts/quick-action-dropdowns";
 import { IssueSubscription } from "./subscription";
+import { IssueDetailRefreshButton } from "./refresh-button";
 
 type Props = {
   workspaceSlug: string;
@@ -143,6 +144,7 @@ export const IssueDetailQuickActions = observer(function IssueDetailQuickActions
     <>
       <div className="flex flex-shrink-0 items-center justify-end">
         <div className="flex flex-wrap items-center gap-2">
+          <IssueDetailRefreshButton workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} />
           {currentUser && !issue?.archived_at && (
             <IssueSubscription workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} />
           )}

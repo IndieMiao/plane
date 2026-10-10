@@ -59,7 +59,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const { data: currentUser } = useUser();
   const { getUserDetails } = useMember();
   const {
-    issue: { getIssueById },
+    issue: { getIssueById, getDetailRefreshVersion, setIsSavingIssueDetails },
     peekIssue,
   } = useIssueDetail();
   const { getProjectById } = useProject();
@@ -125,7 +125,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           projectId={issue.project_id}
           issueId={issue.id}
           isSubmitting={isSubmitting}
-          setIsSubmitting={(value) => setIsSubmitting(value)}
+          setIsSubmitting={(value) => {
+            setIsSubmitting(value);
+            setIsSavingIssueDetails(issueId, "title", value === "submitting");
+          }}
           issueOperations={issueOperations}
           disabled={isArchived || !isEditable}
           value={issue.name}
@@ -140,6 +143,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           entityId={issue.id}
           fileAssetType={EFileAssetType.ISSUE_DESCRIPTION}
           initialValue={issue.description_html}
+          refreshVersion={getDetailRefreshVersion(issueId)}
           key={issue.id}
           onSubmit={async (value, isMigrationUpdate) => {
             if (!issue.id || !issue.project_id) return;
@@ -149,7 +153,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
             });
           }}
           projectId={issue.project_id}
-          setIsSubmitting={(value) => setIsSubmitting(value)}
+          setIsSubmitting={(value) => {
+            setIsSubmitting(value);
+            setIsSavingIssueDetails(issueId, "description", value === "submitting");
+          }}
           workspaceSlug={workspaceSlug}
         />
 

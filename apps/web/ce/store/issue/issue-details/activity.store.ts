@@ -32,7 +32,8 @@ export interface IIssueActivityStoreActions {
     workspaceSlug: string,
     projectId: string,
     issueId: string,
-    loaderType?: TActivityLoader
+    loaderType?: TActivityLoader,
+    replace?: boolean
   ) => Promise<TIssueActivity[]>;
 }
 
@@ -143,14 +144,15 @@ export class IssueActivityStore implements IIssueActivityStore {
     workspaceSlug: string,
     projectId: string,
     issueId: string,
-    loaderType: TActivityLoader = "fetch"
+    loaderType: TActivityLoader = "fetch",
+    replace = false
   ) {
     try {
       this.loader = loaderType;
 
       let props = {};
       const currentActivityIds = this.getActivitiesByIssueId(issueId);
-      if (currentActivityIds && currentActivityIds.length > 0) {
+      if (!replace && currentActivityIds && currentActivityIds.length > 0) {
         const currentActivity = this.getActivityById(currentActivityIds[currentActivityIds.length - 1]);
         if (currentActivity) props = { created_at__gt: currentActivity.created_at };
       }
@@ -160,9 +162,9 @@ export class IssueActivityStore implements IIssueActivityStore {
       const activityIds = activities.map((activity) => activity.id);
 
       runInAction(() => {
-        update(this.activities, issueId, (currentActivityIds) => {
-          if (!currentActivityIds) return activityIds;
-          return uniq(concat(currentActivityIds, activityIds));
+        update(this.activities, issueId, (existingIds) => {
+          if (replace || !existingIds) return activityIds;
+          return uniq(concat(existingIds, activityIds));
         });
         activities.forEach((activity) => {
           set(this.activityMap, activity.id, activity);

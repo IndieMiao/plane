@@ -20,7 +20,8 @@ export interface IIssueCommentStoreActions {
     workspaceSlug: string,
     projectId: string,
     issueId: string,
-    loaderType?: TCommentLoader
+    loaderType?: TCommentLoader,
+    replace?: boolean
   ) => Promise<TIssueComment[]>;
   createComment: (
     workspaceSlug: string,
@@ -93,33 +94,40 @@ export class IssueCommentStore implements IIssueCommentStore {
     workspaceSlug: string,
     projectId: string,
     issueId: string,
-    loaderType: TCommentLoader = "fetch"
+    loaderType: TCommentLoader = "fetch",
+    replace = false
   ) => {
     this.loader = loaderType;
 
     let props = {};
     const _commentIds = this.getCommentsByIssueId(issueId);
-    if (_commentIds && _commentIds.length > 0) {
+    if (!replace && _commentIds && _commentIds.length > 0) {
       const _comment = this.getCommentById(_commentIds[_commentIds.length - 1]);
       if (_comment) props = { created_at__gt: _comment.created_at };
     }
 
-    const comments = await this.issueCommentService.getIssueComments(workspaceSlug, projectId, issueId, props);
+    try {
+      const comments = await this.issueCommentService.getIssueComments(workspaceSlug, projectId, issueId, props);
 
-    const commentIds = comments.map((comment) => comment.id);
-    runInAction(() => {
-      update(this.comments, issueId, (_commentIds) => {
-        if (!_commentIds) return commentIds;
-        return uniq(concat(_commentIds, commentIds));
+      const commentIds = comments.map((comment) => comment.id);
+      runInAction(() => {
+        update(this.comments, issueId, (existingIds) => {
+          if (replace || !existingIds) return commentIds;
+          return uniq(concat(existingIds, commentIds));
+        });
+        comments.forEach((comment) => {
+          this.rootIssueDetail.commentReaction.applyCommentReactions(comment.id, comment?.comment_reactions || []);
+          set(this.commentMap, comment.id, comment);
+        });
+        this.loader = undefined;
       });
-      comments.forEach((comment) => {
-        this.rootIssueDetail.commentReaction.applyCommentReactions(comment.id, comment?.comment_reactions || []);
-        set(this.commentMap, comment.id, comment);
-      });
-      this.loader = undefined;
-    });
 
-    return comments;
+      return comments;
+    } finally {
+      runInAction(() => {
+        this.loader = undefined;
+      });
+    }
   };
 
   createComment = async (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssueComment>) => {

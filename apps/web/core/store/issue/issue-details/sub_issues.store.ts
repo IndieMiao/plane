@@ -25,7 +25,12 @@ import type { IWorkItemSubIssueFiltersStore } from "./sub_issues_filter.store";
 import { WorkItemSubIssueFiltersStore } from "./sub_issues_filter.store";
 
 export interface IIssueSubIssuesStoreActions {
-  fetchSubIssues: (workspaceSlug: string, projectId: string, parentIssueId: string) => Promise<TIssueSubIssues>;
+  fetchSubIssues: (
+    workspaceSlug: string,
+    projectId: string,
+    parentIssueId: string,
+    background?: boolean
+  ) => Promise<TIssueSubIssues>;
   createSubIssues: (
     workspaceSlug: string,
     projectId: string,
@@ -125,8 +130,8 @@ export class IssueSubIssuesStore implements IIssueSubIssuesStore {
     });
   };
 
-  fetchSubIssues = async (workspaceSlug: string, projectId: string, parentIssueId: string) => {
-    this.loader = "init-loader";
+  fetchSubIssues = async (workspaceSlug: string, projectId: string, parentIssueId: string, background = false) => {
+    if (!background) this.loader = "init-loader";
     const response = await this.issueService.subIssues(workspaceSlug, projectId, parentIssueId);
 
     const subIssuesStateDistribution = response?.state_distribution ?? {};

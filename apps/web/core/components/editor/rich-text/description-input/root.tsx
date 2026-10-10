@@ -91,6 +91,8 @@ type Props = {
    * @description SWR description, use it only if you want to sync changes in realtime(pseudo realtime)
    */
   swrDescription?: string | null | undefined;
+  /** Apply an explicit detail refresh to the existing editor without remounting it. */
+  refreshVersion?: number;
   /**
    * @description Workspace slug, this will be used to get the workspace details
    */
@@ -120,6 +122,7 @@ export const DescriptionInput = observer(function DescriptionInput(props: Props)
     projectId,
     setIsSubmitting,
     swrDescription,
+    refreshVersion,
     workspaceSlug,
   } = props;
   // states
@@ -130,6 +133,7 @@ export const DescriptionInput = observer(function DescriptionInput(props: Props)
   });
   // ref to track if there are unsaved changes
   const hasUnsavedChanges = useRef(false);
+  const lastRefreshVersion = useRef(refreshVersion);
   // ref to track last saved content (to skip onChange when content hasn't actually changed)
   const lastSavedContent = useRef(initialValue?.trim() === "" ? "<p></p>" : (initialValue ?? "<p></p>"));
   // store hooks
@@ -183,6 +187,12 @@ export const DescriptionInput = observer(function DescriptionInput(props: Props)
     // Reset unsaved changes flag when form is reset
     hasUnsavedChanges.current = false;
   }, [entityId, initialValue, reset]);
+
+  useEffect(() => {
+    if (lastRefreshVersion.current === refreshVersion) return;
+    lastRefreshVersion.current = refreshVersion;
+    editorRef?.current?.setEditorValue(initialValue || "<p></p>", false);
+  }, [refreshVersion, initialValue, editorRef]);
 
   // ADDING handleDescriptionFormSubmit TO DEPENDENCY ARRAY PRODUCES ADVERSE EFFECTS
   // TODO: Verify the exhaustive-deps warning
@@ -274,7 +284,7 @@ export const DescriptionInput = observer(function DescriptionInput(props: Props)
               return asset_id;
             } catch (error) {
               console.log("Error in uploading asset:", error);
-              throw new Error("Asset upload failed. Please try again later.");
+              throw new Error("Asset upload failed. Please try again later.", { cause: error });
             }
           }}
           duplicateFile={async (assetId: string) => {

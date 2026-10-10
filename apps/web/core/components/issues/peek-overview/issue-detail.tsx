@@ -54,7 +54,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
   // store hooks
   const { data: currentUser } = useUser();
   const {
-    issue: { getIssueById },
+    issue: { getIssueById, getDetailRefreshVersion, setIsSavingIssueDetails },
   } = useIssueDetail();
   const { getProjectById } = useProject();
   const { getUserDetails } = useMember();
@@ -124,7 +124,10 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         projectId={issue.project_id}
         issueId={issue.id}
         isSubmitting={isSubmitting}
-        setIsSubmitting={(value) => setIsSubmitting(value)}
+        setIsSubmitting={(value) => {
+          setIsSubmitting(value);
+          setIsSavingIssueDetails(issueId, "title", value === "submitting");
+        }}
         issueOperations={issueOperations}
         disabled={disabled || isArchived}
         value={issue.name}
@@ -139,6 +142,7 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         entityId={issue.id}
         fileAssetType={EFileAssetType.ISSUE_DESCRIPTION}
         initialValue={issueDescription}
+        refreshVersion={getDetailRefreshVersion(issueId)}
         key={issue.id}
         onSubmit={async (value, isMigrationUpdate) => {
           if (!issue.id || !issue.project_id) return;
@@ -147,7 +151,10 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
             ...(isMigrationUpdate ? { skip_activity: "true" } : {}),
           });
         }}
-        setIsSubmitting={(value) => setIsSubmitting(value)}
+        setIsSubmitting={(value) => {
+          setIsSubmitting(value);
+          setIsSavingIssueDetails(issueId, "description", value === "submitting");
+        }}
         projectId={issue.project_id}
         workspaceSlug={workspaceSlug}
       />
